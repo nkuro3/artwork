@@ -1,0 +1,9 @@
+{
+  "name": "@artwork/config",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./typescript": "./tsconfig.base.json",
+    "./eslint": "./eslint.config.js"
+  }
+}

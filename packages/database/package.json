@@ -1,0 +1,25 @@
+{
+  "name": "@artwork/database",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "latest",
+    "@neondatabase/serverless": "latest"
+  },
+  "devDependencies": {
+    "@artwork/config": "workspace:*",
+    "drizzle-kit": "latest",
+    "typescript": "^5"
+  }
+}

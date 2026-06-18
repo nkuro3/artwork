@@ -1,0 +1,12 @@
+{
+  "name": "@artwork/ui",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "@artwork/config": "workspace:*",
+    "typescript": "^5"
+  }
+}

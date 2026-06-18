@@ -1,0 +1,26 @@
+{
+  "name": "@artwork/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@artwork/database": "workspace:*",
+    "@artwork/shared": "workspace:*",
+    "@artwork/ui": "workspace:*",
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19",
+    "better-auth": "latest",
+    "hono": "^4"
+  },
+  "devDependencies": {
+    "@artwork/config": "workspace:*",
+    "typescript": "^5"
+  }
+}
