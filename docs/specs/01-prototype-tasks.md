@@ -34,7 +34,7 @@
 ## Phase D — Web（Next App Router）
 
 - [x] **D1 RPC クライアント + Cookie 転送** `@web` — api クライアントと、受信 Cookie を api に引き継ぐ `getSession` ヘルパ。ADR D6。`lib/api.ts`(createApiClient: hc<AppType>、cookie ヘッダ転送)、`lib/session.ts`(fetchSession: get-session に Cookie 転送・fetch 注入でテスト可 / getSession: next/headers ラッパ)。web に @artwork/api 型依存追加。12ケース緑。
-- [ ] **D2 認証画面** `@web` — `/login` `/signup` `/logout`。Better Auth クライアント呼び出し。FR-01。
+- [x] **D2 認証画面** `@web` — `/login` `/signup` `/logout`。Better Auth クライアント呼び出し。FR-01。`lib/auth-client.ts`(createAuthClient、credentials include、baseURL=NEXT_PUBLIC_API_URL or 相対)、`lib/auth-forms.ts`(validate/submit、client 注入)、login/signup/logout 画面。22ケース緑。申し送り→Ec（dev CORS）。
 - [ ] **D3 作品管理 UI** `@web` — 一覧 / 作成 / 編集 / 削除（Server Action → api）。画像アップロードは署名 URL → R2 直 PUT → メタ通知。FR-05,06。
 - [ ] **D4 設定** `@web` — プロフィール / slug / 公開設定。FR-03。
 - [ ] **D5 公開ポートフォリオ SSR** `@web` — `/p/:slug` を SSR + `unstable_cache`/`revalidateTag`、最小 SEO/OGP（先頭画像）。FR-11〜16 / NFR-06。
@@ -42,6 +42,8 @@
 - [ ] **Dz web 依存整理（ADR D7）** `@web` — スケルトン由来の未使用 `@artwork/database` を web の依存から削除（web は DB に触れない / D7）。`better-auth` は D2 のクライアント SDK で使うため残す。`bun install` で lock 同期、全ゲート緑を確認。
 
 ## Phase E — 統合・本番結線（🔒 あなたの認証情報が必要）
+
+- [ ] **Ec ローカル dev CORS** `@api` — ローカルで web(:3000)↔api(:8787) が別オリジンのため、api に Hono `cors` を追加（`origin: http://localhost:3000` 等を許可、`credentials: true`）。本番は同一オリジン（ADR D4）なので dev 限定 or 環境変数で許可オリジンを切替。Better Auth の Cookie（SameSite）も合わせて確認。先にテスト（プリフライト/許可ヘッダ）。SEC-03 / D2 申し送り。
 
 - [ ] **E1 🔒 プロビジョニング** — Neon ブランチ + `DATABASE_URL`、R2 バケット + S3 キー、`BETTER_AUTH_SECRET`、`wrangler.toml`（api `[vars]`/secret、web ルート）、Cloudflare ルート `/api/*` → api Worker、R2 カスタムドメイン + Image Resizing 有効化。`.dev.vars` 整備。
 - [ ] **E2 🔒 マイグレーション適用 + e2e スモーク** — Neon に migrate 適用。skip していた統合テストを有効化。サインアップ→作品作成→画像アップロード→公開→ポートフォリオ閲覧を通す（`/verify` 併用）。

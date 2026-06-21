@@ -1,0 +1,13 @@
+import { LogoutButton } from "../../components/logout-button";
+
+// D2 ログアウト画面（FR-01）。最小。ボタン押下で signOut → /login。
+
+export default function LogoutPage() {
+  return (
+    <main>
+      <h1>ログアウト</h1>
+      <p>ログアウトしますか？</p>
+      <LogoutButton />
+    </main>
+  );
+}
