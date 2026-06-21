@@ -48,8 +48,8 @@
 - [x] **Ec ローカル dev CORS** `@api` — api に Hono `cors` を最上段適用。`origin=WEB_ORIGIN`（env、完全一致のみ反射）、`credentials: true`、未設定時は CORS ヘッダ無し（本番同一オリジンで安全）。プリフライトは cors 層で短絡（セッション/DB に到達しない）。`env.ts` に WEB_ORIGIN、`.env.example`/`.dev.vars` に追記。Cookie は localhost が same-site のため SameSite=Lax のままで可。5ケース緑（api 188）。SEC-03。
 
 - [ ] **E1 🔒 プロビジョニング** — Neon ブランチ + `DATABASE_URL`、R2 バケット + S3 キー、`BETTER_AUTH_SECRET`、`wrangler.toml`（api `[vars]`/secret、web ルート）、Cloudflare ルート `/api/*` → api Worker、R2 カスタムドメイン + Image Resizing 有効化。`.dev.vars` 整備。
-- [~] **E2 🔒 マイグレーション適用 + e2e スモーク** — ✅ Neon に migrate 適用済（7テーブル+pg_trgm+GIN3本 検証）。✅ **バックエンド e2e 全ステップ成功**（実 Neon+実 R2、サーバー間スクリプト: signup→profile lazy init→作品作成→公開→presigned R2 直PUT→画像メタ→公開ポートフォリオ反映→pg_trgm検索ヒット）。修正: Better Auth `trustedOrigins`=WEB_ORIGIN（クロスオリジン browser auth 用）。⬜ 残: ブラウザ UI 通しの `/verify`（web↔api 経由）。
-  - 注: この環境では workerd（wrangler dev）が `setsockopt(TCP_NODELAY)` でクラッシュするため、ローカル検証は Bun サーブで実施（コードは fetch ベースでランタイム非依存）。本番 Workers デプロイは E1。
+- [x] **E2 🔒 マイグレーション適用 + e2e スモーク** — ✅ Neon に migrate 適用済（7テーブル+pg_trgm+GIN3本 検証）。✅ **バックエンド e2e 全ステップ成功**（実 Neon+実 R2、サーバー間: signup→profile lazy init→作品作成→公開→presigned R2 直PUT→画像メタ→公開ポートフォリオ反映→pg_trgm検索ヒット）。✅ **ブラウザ UI 通し検証成功**（実画面: サインアップ→/artworks→作品作成+公開→/settings(slug)→公開ポートフォリオ SSR→作品詳細、generateMetadata/SEO まで確認、コンソールエラー無し）。修正: Better Auth `trustedOrigins`=WEB_ORIGIN（クロスオリジン browser auth 用）。画像のブラウザ file_upload はこの環境制約で不可だが R2 経路はバックエンド e2e で実証済。
+  - 注: この環境では workerd（wrangler dev）が `setsockopt(TCP_NODELAY)` でクラッシュするため、ローカル検証は Bun サーブ + next dev で実施（コードは fetch ベースでランタイム非依存）。本番 Workers デプロイは E1。
 
 ---
 
