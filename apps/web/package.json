@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@artwork/api": "workspace:*",
-    "@artwork/database": "workspace:*",
     "@artwork/shared": "workspace:*",
     "@artwork/ui": "workspace:*",
     "next": "^15",
