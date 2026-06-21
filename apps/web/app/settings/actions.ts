@@ -5,10 +5,16 @@
 // lib/profile のコアを呼ぶ（ADR D6 Cookie 転送 / ADR D7 必ず api 経由）。
 // 純ロジック（バリデーション/正規化）は lib/profile.test.ts で検証済み。
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { asProfileClient, createApiClient } from "../../lib/api";
-import { updateProfile, type ProfilePatch, type Result } from "../../lib/profile";
+import { portfolioTag } from "../../lib/portfolio";
+import {
+  getProfile,
+  updateProfile,
+  type ProfilePatch,
+  type Result,
+} from "../../lib/profile";
 
 /** 受信 Cookie を転送する RPC クライアントを作る（ADR D6）。 */
 async function clientFromCookies() {
@@ -38,11 +44,23 @@ export async function updateProfileAction(
   form: FormData,
 ): Promise<Result<{ slug: string }>> {
   const client = await clientFromCookies();
+
+  // slug 変更時に旧 slug のキャッシュタグも無効化するため、更新前の slug を控える
+  //（D4 申し送りの解消 / NFR-06）。取得失敗は致命ではないので無視して続行する。
+  const before = await getProfile(client);
+  const oldSlug = before.ok ? before.data.slug : null;
+
   const result = await updateProfile(client, readPatch(form));
   if (result.ok) {
     revalidatePath("/settings");
-    // slug 変更は公開ポートフォリオ URL（/p/:slug）に影響するため関連 path も無効化する。
+    // 公開ポートフォリオ（/p/:slug）のキャッシュを無効化（NFR-06）。
+    revalidateTag(portfolioTag(result.data.slug));
     revalidatePath(`/p/${result.data.slug}`);
+    // slug が変わった場合は旧 slug のキャッシュも無効化する（旧 URL を残さない）。
+    if (oldSlug && oldSlug !== result.data.slug) {
+      revalidateTag(portfolioTag(oldSlug));
+      revalidatePath(`/p/${oldSlug}`);
+    }
   }
   return result.ok
     ? { ok: true, data: { slug: result.data.slug } }

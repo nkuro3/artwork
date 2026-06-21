@@ -1,6 +1,7 @@
 import type { AppType } from "@artwork/api";
 import { hc } from "hono/client";
 import type { ArtworksClient } from "./artworks";
+import type { PortfolioClient } from "./portfolio";
 import type { ProfileClient } from "./profile";
 import type { UploadClient } from "./upload";
 
@@ -94,4 +95,9 @@ export function asUploadClient(client: ApiClient): UploadClient {
 /** 設定コア（lib/profile）へ渡す構造的クライアント（D4 / C5b 未対応の RPC 型ギャップを閉じる）。 */
 export function asProfileClient(client: ApiClient): ProfileClient {
   return client as unknown as ProfileClient;
+}
+
+/** 公開ポートフォリオコア（lib/portfolio）へ渡す構造的クライアント（D5 / C5b 未対応の RPC 型ギャップを閉じる）。 */
+export function asPortfolioClient(client: ApiClient): PortfolioClient {
+  return client as unknown as PortfolioClient;
 }

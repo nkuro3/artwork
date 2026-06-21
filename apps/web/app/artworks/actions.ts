@@ -5,9 +5,13 @@
 // 作って lib/artworks のコアを呼ぶ（ADR D6 Cookie 転送 / ADR D7 必ず api 経由）。
 // 純ロジック（バリデーション/正規化）は lib/artworks.test.ts で検証済み。
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
-import { asArtworksClient, createApiClient } from "../../lib/api";
+import {
+  asArtworksClient,
+  asProfileClient,
+  createApiClient,
+} from "../../lib/api";
 import {
   createArtwork,
   deleteArtwork,
@@ -16,15 +20,39 @@ import {
   type Result,
   type UpdateArtworkPatch,
 } from "../../lib/artworks";
+import { portfolioTag } from "../../lib/portfolio";
+import { getProfile } from "../../lib/profile";
 
-/** 受信 Cookie を転送する RPC クライアントを作る（ADR D6）。 */
-async function clientFromCookies() {
+/** 受信 Cookie ヘッダ文字列を組む（ADR D6）。 */
+async function cookieHeader(): Promise<string> {
   const store = await cookies();
-  const cookie = store
+  return store
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
+}
+
+/** 受信 Cookie を転送する作品 RPC クライアントを作る（ADR D6）。 */
+async function clientFromCookies() {
+  const cookie = await cookieHeader();
   return asArtworksClient(createApiClient(cookie ? { cookie } : {}));
+}
+
+/**
+ * 作品変更後、自分の公開ポートフォリオ（/p/:slug）のキャッシュを無効化する（NFR-06）。
+ * 自分の slug はプロフィール API から取得する（web は DB に触れない / ADR D7）。
+ * slug 取得に失敗しても作品操作自体は成功しているので無視する。
+ */
+async function revalidateOwnPortfolio(): Promise<void> {
+  const cookie = await cookieHeader();
+  const profileClient = asProfileClient(
+    createApiClient(cookie ? { cookie } : {}),
+  );
+  const profile = await getProfile(profileClient);
+  if (profile.ok && profile.data.slug) {
+    revalidateTag(portfolioTag(profile.data.slug));
+    revalidatePath(`/p/${profile.data.slug}`);
+  }
 }
 
 /** FormData から作成入力を組む。空文字は未指定扱い（description は null）。 */
@@ -62,7 +90,10 @@ export async function createArtworkAction(
 ): Promise<Result<{ id: string }>> {
   const client = await clientFromCookies();
   const result = await createArtwork(client, readCreateInput(form));
-  if (result.ok) revalidatePath("/artworks");
+  if (result.ok) {
+    revalidatePath("/artworks");
+    await revalidateOwnPortfolio();
+  }
   return result.ok
     ? { ok: true, data: { id: result.data.id } }
     : { ok: false, error: result.error };
@@ -77,6 +108,7 @@ export async function updateArtworkAction(
   if (result.ok) {
     revalidatePath("/artworks");
     revalidatePath(`/artworks/edit/${id}`);
+    await revalidateOwnPortfolio();
   }
   return result.ok
     ? { ok: true, data: { id: result.data.id } }
@@ -88,6 +120,9 @@ export async function deleteArtworkAction(
 ): Promise<Result<null>> {
   const client = await clientFromCookies();
   const result = await deleteArtwork(client, id);
-  if (result.ok) revalidatePath("/artworks");
+  if (result.ok) {
+    revalidatePath("/artworks");
+    await revalidateOwnPortfolio();
+  }
   return result;
 }
