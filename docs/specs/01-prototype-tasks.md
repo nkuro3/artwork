@@ -20,7 +20,7 @@
 - [x] **B4 公開可視判定** `@api` — `is_public === true && status === 'published'` のフィルタ。先にテスト。FR-12。`apps/api/src/lib/visibility.ts`: `isArtworkPublic`/`filterPublicArtworks`(sortOrder昇順・不変)。ArtworkStatus はスキーマ enum 由来。10ケース緑。
 - [x] **B5 画像 URL 生成** `@api` — `src/lib/image/`。`/cdn-cgi/image/width=.../<r2_key>` を用途別幅で生成。先にテスト。FR-15 / NFR-03。`apps/api/src/lib/image/url.ts`: `buildImageUrl`/`thumbnailUrl`(400)/`largeUrl`(1600)、純粋（baseUrl 引数）。12ケース緑。
 - [x] **B6 R2 署名 URL** `@api` — `src/lib/storage.ts`。aws4fetch で短命・スコープ限定の presigned PUT を組立（鍵はモック）。先にテストで署名入力を検証。NFR-02 / SEC-06。`createStorageClient`(presignPutUrl/objectEndpoint)、`generateR2Key`(乱数注入で推測不能キー)、既定 expiresIn=300、contentType 拘束対応。16ケース緑。
-- [ ] **B7 検索クエリ組立** `@api` — pg_trgm の類似度/部分一致 SQL フラグメント生成。先にテスト。FR-17 / NFR-05。
+- [x] **B7 検索クエリ組立** `@api` — pg_trgm の類似度/部分一致 SQL フラグメント生成。先にテスト。FR-17 / NFR-05。`apps/api/src/lib/search.ts`: `sanitizeSearchTerm`(LIKE メタ文字エスケープ)/`buildTrigramSearch`(ilike OR、パラメータ束縛)/`buildArtworkSearch`/`buildArtistSearch`。drizzle-orm を api 直接依存に追加(0.45.2 ピン)。20ケース緑（PgDialect で SQL 検証）。
 
 ## Phase C — API（Hono RPC）
 

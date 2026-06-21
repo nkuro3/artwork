@@ -14,7 +14,8 @@
     "@artwork/shared": "workspace:*",
     "hono": "^4",
     "better-auth": "latest",
-    "aws4fetch": "^1"
+    "aws4fetch": "^1",
+    "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
     "@artwork/config": "workspace:*",
