@@ -50,6 +50,12 @@ app.use("*", (c, next) =>
 // 所有者検証はルート層の assertOwner で担保（SEC-01）。
 app.use("/artworks/*", async (c, next) => {
   const db = createDb(c.env.DATABASE_URL);
+  const storage = createStorageClient({
+    accountId: c.env.R2_ACCOUNT_ID,
+    accessKeyId: c.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
+    bucketName: c.env.R2_BUCKET_NAME,
+  });
   c.set("artworksDeps", {
     repo: createArtworkRepository(db),
     resolveArtistProfileId: async (userId) => {
@@ -60,6 +66,9 @@ app.use("/artworks/*", async (c, next) => {
         .limit(1);
       return rows[0]?.id ?? null;
     },
+    // 削除時の R2 クリーンアップ（FR-07）。C3 と同じ repo/storage を生成する。
+    imageRepo: createArtworkImageRepository(db),
+    storage,
   });
   await next();
 });

@@ -1,11 +1,15 @@
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SessionUser, SessionVariables } from "../lib/session";
 import type {
   Artwork,
   ArtworkRepository,
   CreateArtworkInput,
 } from "../repositories/artwork-repository";
+import type {
+  ArtworkImage,
+  ArtworkImageRepository,
+} from "../repositories/image-repository";
 import { createArtworksRoutes } from "./artworks";
 
 // C2 作品 CRUD ルート（FR-05,07,08,09,10 / SEC-01）。
@@ -54,6 +58,46 @@ function createMockRepo(seed: Artwork[] = []): ArtworkRepository {
   };
 }
 
+/**
+ * 画像 listByArtwork のみを使う最小モック。DELETE の R2 クリーンアップ検証用。
+ * 他メソッドはこのルートでは呼ばれないため未実装エラーにする。
+ */
+function createMockImageRepo(
+  byArtwork: Record<string, ArtworkImage[]> = {},
+): ArtworkImageRepository {
+  return {
+    async create() {
+      throw new Error("not implemented");
+    },
+    async findById() {
+      throw new Error("not implemented");
+    },
+    async listByArtwork(artworkId) {
+      return byArtwork[artworkId] ?? [];
+    },
+    async delete() {
+      throw new Error("not implemented");
+    },
+    async updateSortOrders() {
+      throw new Error("not implemented");
+    },
+  };
+}
+
+function seedImage(over: Partial<ArtworkImage> = {}): ArtworkImage {
+  return {
+    id: "img-1",
+    artworkId: "art-1",
+    userId: "user-1",
+    r2Key: "uploads/user-1/art-1/img-1.jpg",
+    width: null,
+    height: null,
+    sortOrder: 0,
+    createdAt: new Date("2026-06-01T00:00:00Z"),
+    ...over,
+  };
+}
+
 const OWNER: SessionUser = { id: "user-1", email: "owner@example.com" };
 const OTHER: SessionUser = { id: "user-2", email: "other@example.com" };
 
@@ -66,7 +110,14 @@ const PROFILE_OF: Record<string, string> = {
  * セッション middleware を差し替えるテスト用 app を組む。
  * `user` を直接 context に載せる（getSession の実体には依存しない）。
  */
-function buildApp(repo: ArtworkRepository, user: SessionUser | null) {
+function buildApp(
+  repo: ArtworkRepository,
+  user: SessionUser | null,
+  opts: {
+    imageRepo?: ArtworkImageRepository;
+    storage?: { deleteObject: (key: string) => Promise<void> };
+  } = {},
+) {
   const app = new Hono<{ Variables: SessionVariables }>();
   app.use("*", async (c, next) => {
     c.set("user", user);
@@ -78,6 +129,8 @@ function buildApp(repo: ArtworkRepository, user: SessionUser | null) {
     createArtworksRoutes({
       repo,
       resolveArtistProfileId: async (userId) => PROFILE_OF[userId] ?? null,
+      imageRepo: opts.imageRepo ?? createMockImageRepo(),
+      storage: opts.storage ?? { deleteObject: async () => {} },
     }),
   );
   return app;
@@ -316,5 +369,74 @@ describe("DELETE /artworks/:id", () => {
     const app = buildApp(createMockRepo(), OWNER);
     const res = await app.request("/artworks/missing", { method: "DELETE" });
     expect(res.status).toBe(404);
+  });
+
+  it("所有していれば各画像の r2_key について deleteObject が呼ばれる（FR-07）", async () => {
+    const repo = createMockRepo([seedArtwork({ id: "art-1", userId: "user-1" })]);
+    const imageRepo = createMockImageRepo({
+      "art-1": [
+        seedImage({ id: "img-1", r2Key: "uploads/user-1/art-1/a.jpg" }),
+        seedImage({ id: "img-2", r2Key: "uploads/user-1/art-1/b.jpg" }),
+      ],
+    });
+    const deleteObject = vi.fn(async () => {});
+    const app = buildApp(repo, OWNER, { imageRepo, storage: { deleteObject } });
+
+    const res = await app.request("/artworks/art-1", { method: "DELETE" });
+    expect(res.status).toBe(204);
+    expect(deleteObject).toHaveBeenCalledTimes(2);
+    expect(deleteObject).toHaveBeenCalledWith("uploads/user-1/art-1/a.jpg");
+    expect(deleteObject).toHaveBeenCalledWith("uploads/user-1/art-1/b.jpg");
+    expect(await repo.findById("art-1")).toBeNull();
+  });
+
+  it("R2 削除 → DB 削除の順で実行する（FR-07）", async () => {
+    const calls: string[] = [];
+    const repo = createMockRepo([seedArtwork({ id: "art-1", userId: "user-1" })]);
+    const baseDelete = repo.delete.bind(repo);
+    repo.delete = async (id) => {
+      calls.push(`db:${id}`);
+      return baseDelete(id);
+    };
+    const imageRepo = createMockImageRepo({
+      "art-1": [seedImage({ id: "img-1", r2Key: "k1" })],
+    });
+    const storage = {
+      deleteObject: async (key: string) => {
+        calls.push(`r2:${key}`);
+      },
+    };
+    const app = buildApp(repo, OWNER, { imageRepo, storage });
+
+    const res = await app.request("/artworks/art-1", { method: "DELETE" });
+    expect(res.status).toBe(204);
+    expect(calls).toEqual(["r2:k1", "db:art-1"]);
+  });
+
+  it("他人の作品は 403 で R2 も DB も触らない", async () => {
+    const repo = createMockRepo([seedArtwork({ id: "art-1", userId: "user-1" })]);
+    const imageRepo = createMockImageRepo({
+      "art-1": [seedImage({ id: "img-1", r2Key: "k1" })],
+    });
+    const deleteObject = vi.fn(async () => {});
+    const app = buildApp(repo, OTHER, { imageRepo, storage: { deleteObject } });
+
+    const res = await app.request("/artworks/art-1", { method: "DELETE" });
+    expect(res.status).toBe(403);
+    expect(deleteObject).not.toHaveBeenCalled();
+    expect(await repo.findById("art-1")).not.toBeNull();
+  });
+
+  it("画像が無くても 204 で削除される", async () => {
+    const repo = createMockRepo([seedArtwork({ id: "art-1", userId: "user-1" })]);
+    const deleteObject = vi.fn(async () => {});
+    const app = buildApp(repo, OWNER, {
+      imageRepo: createMockImageRepo(),
+      storage: { deleteObject },
+    });
+    const res = await app.request("/artworks/art-1", { method: "DELETE" });
+    expect(res.status).toBe(204);
+    expect(deleteObject).not.toHaveBeenCalled();
+    expect(await repo.findById("art-1")).toBeNull();
   });
 });

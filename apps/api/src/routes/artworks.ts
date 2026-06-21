@@ -26,14 +26,24 @@ import type {
   CreateArtworkInput,
   UpdateArtworkPatch,
 } from "../repositories/artwork-repository";
+// 型のみ import（注入なので循環依存を避ける / C3 の型を再利用）。
+import type { ArtworkImageRepository } from "../repositories/image-repository";
+
+/** 削除時に R2 オブジェクトを消すための最小ストレージ契約（C3 の StorageClient 部分集合）。 */
+export interface ArtworksRoutesStorage {
+  deleteObject(key: string): Promise<void>;
+}
 
 /**
  * ルートの依存。`repo` は永続化、`resolveArtistProfileId` は作成時に当該ユーザーの
  * プロフィール id を解決する（プロフィール作成自体は範囲外 / C4 等）。
+ * `imageRepo` / `storage` は削除時の R2 クリーンアップ（FR-07）に使う。
  */
 export interface ArtworksRoutesDeps {
   repo: ArtworkRepository;
   resolveArtistProfileId: (userId: string) => Promise<string | null>;
+  imageRepo: ArtworkImageRepository;
+  storage: ArtworksRoutesStorage;
 }
 
 /**
@@ -221,15 +231,22 @@ export function createArtworksRoutes(injectedDeps?: ArtworksRoutesDeps) {
     return c.json(updated);
   });
 
-  // 削除（所有者検証。画像は DB の FK cascade で連動削除 / FR-07,10）。
+  // 削除（所有者検証 → R2 削除 → DB 削除 / FR-07,10）。
+  // DB 行は FK cascade で消えるが R2 オブジェクトは残るため、先に R2 を消す。
   app.delete("/:id", async (c) => {
-    const { repo } = resolveDeps(injectedDeps, c);
+    const { repo, imageRepo, storage } = resolveDeps(injectedDeps, c);
     const user = getCurrentUser(c);
     const id = c.req.param("id");
 
     const row = await repo.findById(id);
     if (row === null) throw new HTTPException(404, { message: "Not Found" });
     assertOwner(user.id, row);
+
+    // 紐づく画像の R2 オブジェクトを削除（ベストエフォート）。順序は R2 → DB。
+    const images = await imageRepo.listByArtwork(id);
+    for (const image of images) {
+      await storage.deleteObject(image.r2Key);
+    }
 
     await repo.delete(id);
     return c.body(null, 204);
