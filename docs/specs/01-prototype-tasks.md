@@ -33,12 +33,13 @@
 
 ## Phase D — Web（Next App Router）
 
-- [ ] **D1 RPC クライアント + Cookie 転送** `@web` — api クライアントと、受信 Cookie を api に引き継ぐ `getSession` ヘルパ。ADR D6。
+- [x] **D1 RPC クライアント + Cookie 転送** `@web` — api クライアントと、受信 Cookie を api に引き継ぐ `getSession` ヘルパ。ADR D6。`lib/api.ts`(createApiClient: hc<AppType>、cookie ヘッダ転送)、`lib/session.ts`(fetchSession: get-session に Cookie 転送・fetch 注入でテスト可 / getSession: next/headers ラッパ)。web に @artwork/api 型依存追加。12ケース緑。
 - [ ] **D2 認証画面** `@web` — `/login` `/signup` `/logout`。Better Auth クライアント呼び出し。FR-01。
 - [ ] **D3 作品管理 UI** `@web` — 一覧 / 作成 / 編集 / 削除（Server Action → api）。画像アップロードは署名 URL → R2 直 PUT → メタ通知。FR-05,06。
 - [ ] **D4 設定** `@web` — プロフィール / slug / 公開設定。FR-03。
 - [ ] **D5 公開ポートフォリオ SSR** `@web` — `/p/:slug` を SSR + `unstable_cache`/`revalidateTag`、最小 SEO/OGP（先頭画像）。FR-11〜16 / NFR-06。
 - [ ] **D6 作品詳細（公開）** `@web` — `/p/:slug/:artworkId`。画像は詳細用大サイズ。FR-14,15。
+- [ ] **Dz web 依存整理（ADR D7）** `@web` — スケルトン由来の未使用 `@artwork/database` を web の依存から削除（web は DB に触れない / D7）。`better-auth` は D2 のクライアント SDK で使うため残す。`bun install` で lock 同期、全ゲート緑を確認。
 
 ## Phase E — 統合・本番結線（🔒 あなたの認証情報が必要）
 

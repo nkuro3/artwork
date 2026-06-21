@@ -37,6 +37,7 @@
       "name": "@artwork/web",
       "version": "0.1.0",
       "dependencies": {
+        "@artwork/api": "workspace:*",
         "@artwork/database": "workspace:*",
         "@artwork/shared": "workspace:*",
         "@artwork/ui": "workspace:*",
