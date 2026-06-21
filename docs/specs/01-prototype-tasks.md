@@ -26,7 +26,8 @@
 
 - [x] **C1 認証マウント + セッション middleware** `@api` — `auth.handler` を `/api/auth/*` に。`getSession` から `user` を載せる middleware（`getSession` はモック）。ADR D6 / FR-01,02。`env.ts`(AppBindings)、`lib/auth.ts`(createAuth: drizzleAdapter+emailAndPassword、verification 不要)、`lib/session.ts`(createSessionMiddleware/requireAuth/getCurrentUser、auth 注入)、index.ts 配線。7ケース緑。Better Auth は本体型定義(v1.6.20)で確認。
 - [x] **C2 作品 CRUD** `@api` — `POST/GET/GET:id/PATCH/DELETE /artworks`。全変更系で B1 の所有者検証。リポジトリ層はモック（🔒 実 DB 統合は E2）。FR-05,07,08。`repositories/artwork-repository.ts`(interface + drizzle 実装、型のみ担保)、`routes/artworks.ts`(repo/auth 注入、userId サーバー付与、404→403 順、手動バリデーション)、index.ts 配線。19ケース緑。追加依存なし。
-- [ ] **C3 画像ルート** `@api` — `POST /uploads/sign`（B6）/ `POST /artworks/:id/images`（メタ作成）/ `DELETE /images/:id` / 並び替え（B3）。FR-06,07。
+- [x] **C3 画像ルート** `@api` — `POST /uploads/sign`（B6）/ `POST /artworks/:id/images`（メタ作成）/ `DELETE /images/:id` / 並び替え（B3）。FR-06,07。`storage.ts` に `deleteObject` 追加、`image-repository.ts`、`routes/images.ts`(sign/メタ作成/削除時 R2 delete/order 差分)、index.ts 配線。17ケース緑。
+- [ ] **C3b FR-07 作品削除時の R2 クリーンアップ** `@api` — C2 の `DELETE /artworks/:id` で削除前に当該作品の画像 r2_key を列挙し `storage.deleteObject` で R2 からも削除（DB は FK cascade、R2 は手当が必要）。C2 ルートに imageRepo/storage を注入する小改修。先にテスト（削除時に各 r2_key の deleteObject が呼ばれる）。FR-07。
 - [ ] **C4 公開ポートフォリオ** `@api` — `GET /portfolio/:slug`（未認証、B4 で絞り込み）。FR-11,12,13。
 - [ ] **C5 検索ルート + RPC 型公開** `@api` — `GET /search`（B7）。RPC クライアント型を `@artwork/shared` に export。NFR-11 / FR-17。
 

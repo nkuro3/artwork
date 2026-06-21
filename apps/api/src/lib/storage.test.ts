@@ -90,6 +90,52 @@ describe("createStorageClient.presignPutUrl", () => {
   });
 });
 
+describe("createStorageClient.deleteObject", () => {
+  it("issues a signed DELETE against the object endpoint (FR-07)", async () => {
+    const calls: { url: string; method: string | undefined }[] = [];
+    const fetchMock = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : String(input);
+      calls.push({ url, method: init?.method });
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }) as typeof fetch;
+
+    const client = createStorageClient(CONFIG, { fetch: fetchMock });
+    await client.deleteObject("artworks/abc.jpg");
+
+    expect(calls).toHaveLength(1);
+    const call = calls[0]!;
+    expect(call.method).toBe("DELETE");
+    // 署名済みでも path は対象キーを指す（バケット/キー構造）。
+    expect(new URL(call.url).pathname).toBe(
+      `/${CONFIG.bucketName}/artworks/abc.jpg`,
+    );
+    // SigV4 のクエリ署名が載っている。
+    expect(new URL(call.url).searchParams.get("X-Amz-Signature")).toBeTruthy();
+  });
+
+  it("normalizes a leading slash on the key", async () => {
+    const calls: string[] = [];
+    const fetchMock = ((input: RequestInfo | URL) => {
+      calls.push(input instanceof Request ? input.url : String(input));
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }) as typeof fetch;
+
+    const client = createStorageClient(CONFIG, { fetch: fetchMock });
+    await client.deleteObject("/artworks/abc.jpg");
+
+    expect(new URL(calls[0]!).pathname).toBe(
+      `/${CONFIG.bucketName}/artworks/abc.jpg`,
+    );
+  });
+
+  it("throws when R2 responds with a non-ok status", async () => {
+    const fetchMock = (() =>
+      Promise.resolve(new Response("nope", { status: 500 }))) as typeof fetch;
+    const client = createStorageClient(CONFIG, { fetch: fetchMock });
+    await expect(client.deleteObject("artworks/abc.jpg")).rejects.toThrow();
+  });
+});
+
 describe("generateR2Key", () => {
   it("is deterministic for the same randomId", () => {
     const opts = { prefix: "artworks", ext: "jpg", randomId: "id-1" };

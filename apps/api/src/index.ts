@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import type { MiddlewareHandler } from "hono";
 import { createDb } from "@artwork/database";
 import { artistProfile } from "@artwork/database/schema";
 import type { AppBindings } from "./env";
@@ -12,13 +13,19 @@ import {
   type ArtworksRoutesDeps,
   createArtworksRoutes,
 } from "./routes/artworks";
+import { type ImageRoutesDeps, createImageRoutes } from "./routes/images";
 import { createArtworkRepository } from "./repositories/artwork-repository";
+import { createArtworkImageRepository } from "./repositories/image-repository";
+import { createStorageClient } from "./lib/storage";
 
 // api Worker のエントリ。
 // Better Auth は /api/auth/* にマウント（ADR D6）、CRUD は /artworks 等（Phase C / NFR-11）。
 type AppEnv = {
   Bindings: AppBindings;
-  Variables: SessionVariables & { artworksDeps?: ArtworksRoutesDeps };
+  Variables: SessionVariables & {
+    artworksDeps?: ArtworksRoutesDeps;
+    imageDeps?: ImageRoutesDeps;
+  };
 };
 
 const app = new Hono<AppEnv>();
@@ -56,6 +63,34 @@ app.use("/artworks/*", async (c, next) => {
   });
   await next();
 });
+
+// 画像（C3 / FR-06,07 / NFR-02）の deps。署名 URL 発行・メタ作成・削除・並び替えで使う。
+// repo / storage は env 依存のためリクエストごとに deps を生成して context に載せる。
+// 所有者検証はルート層の assertOwner で担保（SEC-01）。FR-07 の R2 削除は storage 経由。
+// 注意: ルート mount より前に登録する（mount 後の use は当該パスのハンドラ前に走らない）。
+const imageDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const db = createDb(c.env.DATABASE_URL);
+  const storage = createStorageClient({
+    accountId: c.env.R2_ACCOUNT_ID,
+    accessKeyId: c.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
+    bucketName: c.env.R2_BUCKET_NAME,
+  });
+  c.set("imageDeps", {
+    imageRepo: createArtworkImageRepository(db),
+    artworkRepo: createArtworkRepository(db),
+    storage,
+  });
+  await next();
+};
+app.use("/uploads/*", imageDepsMiddleware);
+app.use("/images/*", imageDepsMiddleware);
+app.use("/artworks/*", imageDepsMiddleware);
+
+// C2 作品 CRUD。
 app.route("/artworks", createArtworksRoutes());
+// 画像ルートはルート直下にマウントする（/uploads/sign・/images/:id・/artworks/:id/images*）。
+// C2 の /artworks（/、/:id）とはパス深度が異なり衝突しない（Hono は登録順 + パスで解決）。
+app.route("/", createImageRoutes());
 
 export default app;

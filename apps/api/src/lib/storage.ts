@@ -36,6 +36,14 @@ export interface StorageClient {
   objectEndpoint(key: string): string;
   /** ブラウザ直アップロード用の presigned PUT URL を生成する。 */
   presignPutUrl(key: string, opts?: PresignPutOptions): Promise<string>;
+  /** オブジェクトを R2 から削除する（FR-07）。署名付き DELETE を実行する。 */
+  deleteObject(key: string): Promise<void>;
+}
+
+/** クライアント生成時に注入できる依存（テストで fetch を差し替える）。 */
+export interface StorageClientOptions {
+  /** ネットワーク呼び出しに使う fetch。既定は globalThis.fetch。 */
+  fetch?: typeof fetch;
 }
 
 /** 先頭スラッシュを除去してキーを正規化する。 */
@@ -47,7 +55,10 @@ function normalizeKey(key: string): string {
  * R2 ストレージクライアントを生成する（依存注入）。
  * aws4fetch の `AwsClient`（region:"auto", service:"s3"）で SigV4 を扱う。
  */
-export function createStorageClient(config: StorageConfig): StorageClient {
+export function createStorageClient(
+  config: StorageConfig,
+  options?: StorageClientOptions,
+): StorageClient {
   const client = new AwsClient({
     accessKeyId: config.accessKeyId,
     secretAccessKey: config.secretAccessKey,
@@ -56,6 +67,7 @@ export function createStorageClient(config: StorageConfig): StorageClient {
   });
 
   const host = `${config.accountId}.r2.cloudflarestorage.com`;
+  const doFetch = options?.fetch ?? fetch;
 
   function objectEndpoint(key: string): string {
     return `https://${host}/${config.bucketName}/${normalizeKey(key)}`;
@@ -89,7 +101,24 @@ export function createStorageClient(config: StorageConfig): StorageClient {
     return signed.url;
   }
 
-  return { objectEndpoint, presignPutUrl };
+  async function deleteObject(key: string): Promise<void> {
+    // SigV4 をクエリ署名（signQuery）した DELETE URL を組み立て、注入された fetch
+    // で実行する。aws4fetch の client.fetch は内部でグローバル fetch を呼ぶため、
+    // テストでの差し替えを可能にするべく sign + 自前 fetch に分離する。
+    const signed = await client.sign(objectEndpoint(key), {
+      method: "DELETE",
+      aws: { signQuery: true },
+    });
+    const res = await doFetch(signed.url, { method: "DELETE" });
+    // R2 は削除済み/不在でも 204 を返す。ok でなければ失敗扱い。
+    if (!res.ok) {
+      throw new Error(
+        `Failed to delete R2 object '${key}': ${res.status} ${res.statusText}`,
+      );
+    }
+  }
+
+  return { objectEndpoint, presignPutUrl, deleteObject };
 }
 
 /** R2 キー組み立てのオプション。 */
