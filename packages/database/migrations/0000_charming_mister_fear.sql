@@ -93,8 +93,7 @@ ALTER TABLE "session" ADD CONSTRAINT "session_userId_user_id_fk" FOREIGN KEY ("u
 CREATE INDEX "artwork_user_id_idx" ON "artwork" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "artwork_artist_profile_id_idx" ON "artwork" USING btree ("artist_profile_id");--> statement-breakpoint
 CREATE INDEX "artwork_image_artwork_id_idx" ON "artwork_image" USING btree ("artwork_id");--> statement-breakpoint
-CREATE INDEX "artwork_image_user_id_idx" ON "artwork_image" USING btree ("user_id");
--- statement-breakpoint
+CREATE INDEX "artwork_image_user_id_idx" ON "artwork_image" USING btree ("user_id");--> statement-breakpoint
 -- =============================================================================
 -- MANUAL ADDITIONS (not emitted by drizzle-kit)
 -- pg_trgm + GIN trigram indexes for cross-entity search (FR-17 / NFR-05).
