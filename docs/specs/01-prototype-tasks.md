@@ -35,7 +35,7 @@
 
 - [x] **D1 RPC クライアント + Cookie 転送** `@web` — api クライアントと、受信 Cookie を api に引き継ぐ `getSession` ヘルパ。ADR D6。`lib/api.ts`(createApiClient: hc<AppType>、cookie ヘッダ転送)、`lib/session.ts`(fetchSession: get-session に Cookie 転送・fetch 注入でテスト可 / getSession: next/headers ラッパ)。web に @artwork/api 型依存追加。12ケース緑。
 - [x] **D2 認証画面** `@web` — `/login` `/signup` `/logout`。Better Auth クライアント呼び出し。FR-01。`lib/auth-client.ts`(createAuthClient、credentials include、baseURL=NEXT_PUBLIC_API_URL or 相対)、`lib/auth-forms.ts`(validate/submit、client 注入)、login/signup/logout 画面。22ケース緑。申し送り→Ec（dev CORS）。
-- [ ] **D3 作品管理 UI** `@web` — 一覧 / 作成 / 編集 / 削除（Server Action → api）。画像アップロードは署名 URL → R2 直 PUT → メタ通知。FR-05,06。
+- [x] **D3 作品管理 UI** `@web` — 一覧 / 作成 / 編集 / 削除（Server Action → api）。画像アップロードは署名 URL → R2 直 PUT → メタ通知。FR-05,06。`lib/artworks.ts`(list/get/create/update/delete、client 注入)、`lib/upload.ts`(sign→PUT→メタ作成、fetch 注入)、actions.ts、画面 /artworks・new・edit/[id]。22ケース緑。申し送り→C5b（AppType 型整備）。
 - [ ] **D4 設定** `@web` — プロフィール / slug / 公開設定。FR-03。
 - [ ] **D5 公開ポートフォリオ SSR** `@web` — `/p/:slug` を SSR + `unstable_cache`/`revalidateTag`、最小 SEO/OGP（先頭画像）。FR-11〜16 / NFR-06。
 - [ ] **D6 作品詳細（公開）** `@web` — `/p/:slug/:artworkId`。画像は詳細用大サイズ。FR-14,15。
@@ -43,6 +43,7 @@
 
 ## Phase E — 統合・本番結線（🔒 あなたの認証情報が必要）
 
+- [ ] **C5b RPC AppType 型整備** `@api` — api の各ルート（artworks/images/uploads/portfolio/search）を Hono のチェーン記法（`return new Hono().get(...).post(...)`）にして `AppType=typeof app` にルート型を載せ、`hc<AppType>()` を web で完全型付きにする（NFR-11 / D5 の本来の姿）。web 側の `asArtworksClient` 等の cast を解消。先にテスト（型レベル＋既存ルートの挙動不変）。
 - [ ] **Ec ローカル dev CORS** `@api` — ローカルで web(:3000)↔api(:8787) が別オリジンのため、api に Hono `cors` を追加（`origin: http://localhost:3000` 等を許可、`credentials: true`）。本番は同一オリジン（ADR D4）なので dev 限定 or 環境変数で許可オリジンを切替。Better Auth の Cookie（SameSite）も合わせて確認。先にテスト（プリフライト/許可ヘッダ）。SEC-03 / D2 申し送り。
 
 - [ ] **E1 🔒 プロビジョニング** — Neon ブランチ + `DATABASE_URL`、R2 バケット + S3 キー、`BETTER_AUTH_SECRET`、`wrangler.toml`（api `[vars]`/secret、web ルート）、Cloudflare ルート `/api/*` → api Worker、R2 カスタムドメイン + Image Resizing 有効化。`.dev.vars` 整備。
