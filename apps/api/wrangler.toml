@@ -3,9 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2026-06-01"
 compatibility_flags = ["nodejs_compat"]
 
-# 機密は [vars] に書かない。
-# - ローカル: .dev.vars（gitignore 済み）
-# - 本番: `wrangler secret put DATABASE_URL` などで設定（ADR D11）
+# 非機密の本番設定（ADR D11）。機密（DATABASE_URL / BETTER_AUTH_SECRET / R2 の S3 キー）は
+# [vars] に書かず `wrangler secret put <NAME>` で設定する。
+# ローカルは .dev.vars が [vars] を上書きする（localhost 値で開発）。
+[vars]
+BETTER_AUTH_URL = "https://artwork-store.jp"
+R2_BUCKET_NAME = "artwork-images"
+IMAGE_BASE_URL = "https://images.artwork-store.jp"
+# WEB_ORIGIN は本番では未設定（同一オリジン ADR D4 → CORS 無効でよい）。
 
 # 本番ルーティング（ADR D4）: 1 ドメインで /api/* を api Worker に振る。
 # 注意: deploy 時にゾーン artwork-store.jp が Cloudflare アカウントに
