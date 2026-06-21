@@ -29,7 +29,7 @@
 - [x] **C3 画像ルート** `@api` — `POST /uploads/sign`（B6）/ `POST /artworks/:id/images`（メタ作成）/ `DELETE /images/:id` / 並び替え（B3）。FR-06,07。`storage.ts` に `deleteObject` 追加、`image-repository.ts`、`routes/images.ts`(sign/メタ作成/削除時 R2 delete/order 差分)、index.ts 配線。17ケース緑。
 - [x] **C3b FR-07 作品削除時の R2 クリーンアップ** `@api` — C2 の `DELETE /artworks/:id` で削除前に当該作品の画像 r2_key を列挙し `storage.deleteObject` で R2 からも削除（DB は FK cascade、R2 は手当が必要）。C2 ルートに imageRepo/storage を注入する小改修。先にテスト（削除時に各 r2_key の deleteObject が呼ばれる）。FR-07。処理順 404→403→listByArtwork→R2 delete→DB delete→204。23ケース緑。
 - [x] **C4 公開ポートフォリオ** `@api` — `GET /portfolio/:slug`（未認証、B4 で絞り込み）。FR-11,12,13。`portfolio-repository.ts`(getBySlug、join、型のみ担保)、`routes/portfolio.ts`(B4 可視フィルタ+B5 画像URL、公開DTO、404)。セッション middleware の前に配置（未認証は getSession 不要）。5ケース緑。
-- [ ] **C5 検索ルート + RPC 型公開** `@api` — `GET /search`（B7）。RPC クライアント型を `@artwork/shared` に export。NFR-11 / FR-17。
+- [x] **C5 検索ルート + RPC 型公開** `@api` — `GET /search`（B7）。RPC クライアント型を `@artwork/shared` に export。NFR-11 / FR-17。`search-repository.ts`(公開対象のみ検索、型のみ担保)、`routes/search.ts`(未認証、空q最適化、DTO+thumbnailUrl)。RPC: DTO は `@artwork/shared`（正本）、`AppType=typeof app` は `@artwork/api` から直接（web→api→shared 一方向、循環回避）。index.ts ルートをチェーン化。検索ルートのテスト緑、計171+。
 
 ## Phase D — Web（Next App Router）
 

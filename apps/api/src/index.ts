@@ -18,9 +18,17 @@ import {
   type PortfolioRoutesDeps,
   createPortfolioRoutes,
 } from "./routes/portfolio";
+import { type SearchRoutesDeps, createSearchRoutes } from "./routes/search";
+// 公開 DTO 型を `@artwork/shared` 経由で web に渡すため re-export する（NFR-11 / ADR D5）。
+export type {
+  SearchArtistDto,
+  SearchArtworkDto,
+  SearchResponseDto,
+} from "./routes/search";
 import { createArtworkRepository } from "./repositories/artwork-repository";
 import { createArtworkImageRepository } from "./repositories/image-repository";
 import { createPortfolioRepository } from "./repositories/portfolio-repository";
+import { createSearchRepository } from "./repositories/search-repository";
 import { createStorageClient } from "./lib/storage";
 
 // api Worker のエントリ。
@@ -31,40 +39,28 @@ type AppEnv = {
     artworksDeps?: ArtworksRoutesDeps;
     imageDeps?: ImageRoutesDeps;
     portfolioDeps?: PortfolioRoutesDeps;
+    searchDeps?: SearchRoutesDeps;
   };
 };
 
-const app = new Hono<AppEnv>();
-
-// ヘルスチェックは認証も Better Auth も不要（疎通確認用 / A1）。
-app.get("/health", (c) => c.json({ status: "ok" }));
-
-// Better Auth のハンドラを /api/auth/* にマウント。
-// （サインアップ/サインイン等。セッション middleware はここでは不要。）
-app.on(["POST", "GET"], "/api/auth/*", (c) =>
-  createAuth(c.env).handler(c.req.raw),
-);
-
-// 公開ポートフォリオ（C4 / FR-11,12,13,15 / NFR-06）。未認証読み取り。
+// 公開ディスカバリ（C4 ポートフォリオ / C5 検索）の deps middleware。
 // セッション middleware より「前」に置き、未認証アクセスで getSession を走らせない
 // （読み取り高速化方針 / NFR-06）。deps は env(DATABASE_URL) 依存のためリクエストごとに生成。
-app.use("/portfolio/*", async (c, next) => {
+const portfolioDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   const db = createDb(c.env.DATABASE_URL);
   c.set("portfolioDeps", { portfolioRepo: createPortfolioRepository(db) });
   await next();
-});
-app.route("/portfolio", createPortfolioRoutes());
+};
+const searchDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const db = createDb(c.env.DATABASE_URL);
+  c.set("searchDeps", { searchRepo: createSearchRepository(db) });
+  await next();
+};
 
-// 以降のアプリルート（Phase C の CRUD 等）はセッションを解決して
-// user / session を context に載せる（無ければ null / ADR D6）。
-app.use("*", (c, next) =>
-  createSessionMiddleware<AppEnv>(createAuth(c.env))(c, next),
-);
-
-// 作品 CRUD（C2 / FR-05,07,08,09,10）。repo は env(DATABASE_URL) 依存のため
+// 作品 CRUD（C2 / FR-05,07,08,09,10）の deps。repo は env(DATABASE_URL) 依存のため
 // リクエストごとに deps を生成して context に載せる（セッションは前段で解決済み）。
 // 所有者検証はルート層の assertOwner で担保（SEC-01）。
-app.use("/artworks/*", async (c, next) => {
+const artworksDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   const db = createDb(c.env.DATABASE_URL);
   const storage = createStorageClient({
     accountId: c.env.R2_ACCOUNT_ID,
@@ -87,7 +83,7 @@ app.use("/artworks/*", async (c, next) => {
     storage,
   });
   await next();
-});
+};
 
 // 画像（C3 / FR-06,07 / NFR-02）の deps。署名 URL 発行・メタ作成・削除・並び替えで使う。
 // repo / storage は env 依存のためリクエストごとに deps を生成して context に載せる。
@@ -108,14 +104,43 @@ const imageDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   });
   await next();
 };
-app.use("/uploads/*", imageDepsMiddleware);
-app.use("/images/*", imageDepsMiddleware);
-app.use("/artworks/*", imageDepsMiddleware);
 
-// C2 作品 CRUD。
-app.route("/artworks", createArtworksRoutes());
-// 画像ルートはルート直下にマウントする（/uploads/sign・/images/:id・/artworks/:id/images*）。
-// C2 の /artworks（/、/:id）とはパス深度が異なり衝突しない（Hono は登録順 + パスで解決）。
-app.route("/", createImageRoutes());
+// ルートはメソッドチェーンで合成する。チェーンしないと `typeof app` に各ルートの
+// 入出力型が載らず、web（D1）の `hc<AppType>()` 型付きアクセスが効かない（NFR-11 / ADR D5）。
+// 登録順・middleware の前後関係はリファクタ前と不変に保つ。
+const app = new Hono<AppEnv>()
+  // ヘルスチェックは認証も Better Auth も不要（疎通確認用 / A1）。
+  .get("/health", (c) => c.json({ status: "ok" }))
+  // Better Auth のハンドラを /api/auth/* にマウント。
+  // （サインアップ/サインイン等。セッション middleware はここでは不要。）
+  .on(["POST", "GET"], "/api/auth/*", (c) =>
+    createAuth(c.env).handler(c.req.raw),
+  )
+  // 公開ポートフォリオ（C4 / FR-11,12,13,15 / NFR-06）。未認証読み取り。
+  .use("/portfolio/*", portfolioDepsMiddleware)
+  .route("/portfolio", createPortfolioRoutes())
+  // 公開検索（C5 / FR-17 / NFR-05 / NFR-06）。未認証の公開ディスカバリ。
+  .use("/search", searchDepsMiddleware)
+  .route("/", createSearchRoutes())
+  // 以降のアプリルート（Phase C の CRUD 等）はセッションを解決して
+  // user / session を context に載せる（無ければ null / ADR D6）。
+  .use("*", (c, next) =>
+    createSessionMiddleware<AppEnv>(createAuth(c.env))(c, next),
+  )
+  .use("/artworks/*", artworksDepsMiddleware)
+  .use("/uploads/*", imageDepsMiddleware)
+  .use("/images/*", imageDepsMiddleware)
+  .use("/artworks/*", imageDepsMiddleware)
+  // C2 作品 CRUD。
+  .route("/artworks", createArtworksRoutes())
+  // 画像ルートはルート直下にマウントする（/uploads/sign・/images/:id・/artworks/:id/images*）。
+  // C2 の /artworks（/、/:id）とはパス深度が異なり衝突しない（Hono は登録順 + パスで解決）。
+  .route("/", createImageRoutes());
+
+/**
+ * Hono RPC クライアント用のアプリ型（NFR-11 / ADR D5）。
+ * `@artwork/shared` から再公開し、web（D1）が `hc<AppType>()` で型付きアクセスする。
+ */
+export type AppType = typeof app;
 
 export default app;
