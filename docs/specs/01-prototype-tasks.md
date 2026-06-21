@@ -14,7 +14,7 @@
 
 ## Phase B — ドメインロジック（純ロジック・自走可・TDD が最も効く）
 
-- [ ] **B1 認可ガード** `@api` — `assertOwner(userId, row)` と認可エラー。先にテスト（一致=通過 / 不一致=403）。FR-10 / SEC-01。
+- [x] **B1 認可ガード** `@api` — `assertOwner(userId, row)` と認可エラー。先にテスト（一致=通過 / 不一致=403）。FR-10 / SEC-01。`apps/api/src/lib/auth-guard.ts`: `isOwner`/`assertOwner`（HTTPException 403）、`OwnedResource` で汎用化。6ケース緑。
 - [ ] **B2 slug** `@api` — 生成・正規化・バリデーション・予約語/重複チェックヘルパ。先にテスト。FR-03 / FR-11。
 - [ ] **B3 sort_order** `@api` — 並び替え（挿入・移動）ロジック。先にテスト。FR-09 / FR-13。
 - [ ] **B4 公開可視判定** `@api` — `is_public === true && status === 'published'` のフィルタ。先にテスト。FR-12。
