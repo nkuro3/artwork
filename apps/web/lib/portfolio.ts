@@ -6,6 +6,7 @@
 // web は DB に触れず、必ず api 経由（ADR D7）。
 
 import type { Metadata } from "next";
+import type { ApiClient } from "./api";
 
 /** 公開する画像（用途別サイズ URL のみ / C4 公開 DTO に対応）。 */
 export interface PortfolioImage {
@@ -28,16 +29,11 @@ export interface PortfolioDto {
 }
 
 /**
- * コアが必要とする RPC 部分集合。`createApiClient()` の戻り値が構造的に適合する。
+ * C5b: `AppType` に /portfolio/:slug のルート型が載ったので、コアは型付き RPC
+ * クライアント（`ApiClient`）をそのまま受け取る（NFR-11 / ADR D5）。
  * C4 は未認証ルートなので Cookie 転送なしの `createApiClient()` で呼べる。
  */
-export interface PortfolioClient {
-  portfolio: {
-    ":slug": {
-      $get: (args: { param: { slug: string } }) => Promise<Response>;
-    };
-  };
-}
+export type PortfolioClient = ApiClient;
 
 /**
  * 正規化済みの結果。

@@ -7,11 +7,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
-import {
-  asArtworksClient,
-  asProfileClient,
-  createApiClient,
-} from "../../lib/api";
+import { createApiClient } from "../../lib/api";
 import {
   createArtwork,
   deleteArtwork,
@@ -35,7 +31,7 @@ async function cookieHeader(): Promise<string> {
 /** 受信 Cookie を転送する作品 RPC クライアントを作る（ADR D6）。 */
 async function clientFromCookies() {
   const cookie = await cookieHeader();
-  return asArtworksClient(createApiClient(cookie ? { cookie } : {}));
+  return createApiClient(cookie ? { cookie } : {});
 }
 
 /**
@@ -45,9 +41,7 @@ async function clientFromCookies() {
  */
 async function revalidateOwnPortfolio(): Promise<void> {
   const cookie = await cookieHeader();
-  const profileClient = asProfileClient(
-    createApiClient(cookie ? { cookie } : {}),
-  );
+  const profileClient = createApiClient(cookie ? { cookie } : {});
   const profile = await getProfile(profileClient);
   if (profile.ok && profile.data.slug) {
     revalidateTag(portfolioTag(profile.data.slug));

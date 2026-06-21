@@ -3,6 +3,8 @@
 // 呼んで結果を成功/失敗に正規化する。next 非依存・純ロジックなのでユニットテスト対象
 //（Server Action / 画面は薄いラッパで非対象）。web は DB に触れず、必ず api 経由（ADR D7）。
 
+import type { ApiClient } from "./api";
+
 /**
  * 設定 UI が扱うプロフィールの最小集合（DTO / ADR D5）。
  * api の `ArtistProfile` から slug/displayName/bio/isPublic のみを取り出す。
@@ -15,13 +17,9 @@ export interface Profile {
   isPublic: boolean;
 }
 
-/** コアが必要とする RPC 部分集合。`createApiClient()` の戻り値が構造的に適合する。 */
-export interface ProfileClient {
-  profile: {
-    $get: (args?: unknown) => Promise<Response>;
-    $patch: (args: { json: ProfilePatch }) => Promise<Response>;
-  };
-}
+// C5b: `AppType` に /profile のルート型が載ったので、コアは型付き RPC クライアント
+// （`ApiClient`）をそのまま受け取る（NFR-11 / ADR D5）。
+export type ProfileClient = ApiClient;
 
 /** 更新パッチ（部分更新）。指定したフィールドのみ送る。 */
 export interface ProfilePatch {

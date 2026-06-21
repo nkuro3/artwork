@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
-import { asPortfolioClient, createApiClient } from "../../../../lib/api";
+import { createApiClient } from "../../../../lib/api";
 import {
   buildArtworkMetadata,
   findArtwork,
@@ -21,7 +21,7 @@ import {
 function loadPortfolio(slug: string): Promise<PortfolioDto | null> {
   return unstable_cache(
     async () => {
-      const client = asPortfolioClient(createApiClient());
+      const client = createApiClient();
       const result = await getPortfolio(client, slug);
       return result.ok ? result.data : null;
     },

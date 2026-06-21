@@ -84,10 +84,10 @@ function toImageDtos(
  *   `c.set('portfolioDeps', ...)` してから mount する。
  */
 export function createPortfolioRoutes(injectedDeps?: PortfolioRoutesDeps) {
-  const app = new Hono<AppEnv>();
-
-  // 公開読み取り（NFR-06）。認証は掛けない。
-  app.get("/:slug", async (c) => {
+  // メソッドチェーンで合成し、`ReturnType<typeof createPortfolioRoutes>` に
+  // ルートの入出力型を載せる（NFR-11 / ADR D5）。
+  return new Hono<AppEnv>().get("/:slug", async (c) => {
+    // 公開読み取り（NFR-06）。認証は掛けない。
     const deps = resolveDeps(injectedDeps, c);
     const slug = c.req.param("slug");
 
@@ -117,6 +117,4 @@ export function createPortfolioRoutes(injectedDeps?: PortfolioRoutesDeps) {
 
     return c.json(body);
   });
-
-  return app;
 }

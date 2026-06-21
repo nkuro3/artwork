@@ -18,6 +18,7 @@
 
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { validator } from "hono/validator";
 import { assertOwner } from "../lib/auth-guard";
 import {
   type SessionVariables,
@@ -61,17 +62,6 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-/** JSON ボディを取得（不正な JSON は 400）。 */
-async function readJson(c: {
-  req: { json: () => Promise<unknown> };
-}): Promise<unknown> {
-  try {
-    return await c.req.json();
-  } catch {
-    badRequest("Invalid JSON body");
-  }
-}
-
 /** 非空文字列を検証する。 */
 function validateNonEmptyString(value: unknown, field: string): string {
   if (typeof value !== "string" || value.trim() === "") {
@@ -90,6 +80,42 @@ function validateOptionalDimension(
     badRequest(`${field} must be a positive integer`);
   }
   return value as number;
+}
+
+/** 署名 URL 発行ボディ → 型付き入力。 */
+function parseSignBody(raw: unknown): { ext: string; contentType?: string } {
+  const body = asRecord(raw);
+  const ext = validateNonEmptyString(body.ext, "ext");
+  if (body.contentType !== undefined) {
+    return {
+      ext,
+      contentType: validateNonEmptyString(body.contentType, "contentType"),
+    };
+  }
+  return { ext };
+}
+
+/** 画像メタ作成ボディ → 型付き入力。 */
+function parseImageMetaBody(raw: unknown): {
+  r2Key: string;
+  width?: number;
+  height?: number;
+} {
+  const body = asRecord(raw);
+  const r2Key = validateNonEmptyString(body.r2Key, "r2Key");
+  const width = validateOptionalDimension(body.width, "width");
+  const height = validateOptionalDimension(body.height, "height");
+  return {
+    r2Key,
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
+  };
+}
+
+/** 並び替えボディ → 型付き入力。 */
+function parseOrderBody(raw: unknown): { orderedIds: string[] } {
+  const body = asRecord(raw);
+  return { orderedIds: parseOrderedIds(body.orderedIds) };
 }
 
 /**
@@ -114,122 +140,121 @@ function resolveDeps(
  *   middleware で `c.set('imageDeps', ...)` してから `app.route('/', createImageRoutes())`。
  */
 export function createImageRoutes(injectedDeps?: ImageRoutesDeps) {
-  const app = new Hono<AppEnv>();
+  // メソッドチェーンで合成する。チェーンの戻り値を return することで
+  // `ReturnType<typeof createImageRoutes>` に各ルートの入出力型が載り、
+  // web の `hc<AppType>()` が型付きアクセスできる（NFR-11 / ADR D5）。
+  return (
+    new Hono<AppEnv>()
+      // 全エンドポイントで認証必須。
+      .use("*", requireAuth)
+      // 署名 URL 発行（NFR-02 / SEC-06 / ADR D9）。推測不能キーを採番し、
+      // presigned PUT URL とそのキーを返す。アップロードはブラウザが R2 へ直接行う。
+      .post(
+        "/uploads/sign",
+        validator("json", (value) => parseSignBody(value)),
+        async (c) => {
+        const deps = resolveDeps(injectedDeps, c);
+        getCurrentUser(c); // 認証済みであることのみ要求。
+        const { ext, contentType } = c.req.valid("json");
 
-  // 全エンドポイントで認証必須。
-  app.use("*", requireAuth);
+        const generateId = deps.generateId ?? (() => crypto.randomUUID());
+        const r2Key = generateR2Key({
+          prefix: "artworks",
+          ext,
+          randomId: generateId(),
+        });
 
-  // 署名 URL 発行（NFR-02 / SEC-06 / ADR D9）。推測不能キーを採番し、
-  // presigned PUT URL とそのキーを返す。アップロードはブラウザが R2 へ直接行う。
-  app.post("/uploads/sign", async (c) => {
-    const deps = resolveDeps(injectedDeps, c);
-    getCurrentUser(c); // 認証済みであることのみ要求。
-    const body = asRecord(await readJson(c));
+        const uploadUrl = await deps.storage.presignPutUrl(
+          r2Key,
+          contentType !== undefined ? { contentType } : undefined,
+        );
 
-    const ext = validateNonEmptyString(body.ext, "ext");
-    let contentType: string | undefined;
-    if (body.contentType !== undefined) {
-      contentType = validateNonEmptyString(body.contentType, "contentType");
-    }
+        return c.json({ uploadUrl, r2Key }, 201);
+      })
+      // 画像メタ作成（FR-06）。所有者の artwork に紐づけ、sortOrder を連番付与（B3）。
+      // json 入力は `validator` で型を宣言し、web に body 型を伝える（NFR-11 / ADR D5）。
+      .post(
+        "/artworks/:id/images",
+        validator("json", (value) => parseImageMetaBody(value)),
+        async (c) => {
+        const deps = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const artworkId = c.req.param("id");
+        const { r2Key, width, height } = c.req.valid("json");
 
-    const generateId = deps.generateId ?? (() => crypto.randomUUID());
-    const r2Key = generateR2Key({
-      prefix: "artworks",
-      ext,
-      randomId: generateId(),
-    });
+        const artwork = await deps.artworkRepo.findById(artworkId);
+        if (artwork === null) {
+          throw new HTTPException(404, { message: "Not Found" });
+        }
+        assertOwner(user.id, artwork);
 
-    const uploadUrl = await deps.storage.presignPutUrl(
-      r2Key,
-      contentType !== undefined ? { contentType } : undefined,
-    );
+        const existing = await deps.imageRepo.listByArtwork(artworkId);
+        const created = await deps.imageRepo.create({
+          artworkId,
+          userId: user.id, // サーバー付与（SEC-01）。
+          r2Key,
+          ...(width !== undefined ? { width } : {}),
+          ...(height !== undefined ? { height } : {}),
+          sortOrder: nextSortOrder(existing),
+        });
 
-    return c.json({ uploadUrl, r2Key }, 201);
-  });
+        return c.json(created, 201);
+      })
+      // 画像削除（FR-07）。所有者検証 → R2 オブジェクト削除 → DB 行削除。
+      .delete("/images/:id", async (c) => {
+        const deps = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const id = c.req.param("id");
 
-  // 画像メタ作成（FR-06）。所有者の artwork に紐づけ、sortOrder を連番付与（B3）。
-  app.post("/artworks/:id/images", async (c) => {
-    const deps = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const artworkId = c.req.param("id");
-    const body = asRecord(await readJson(c));
+        const image = await deps.imageRepo.findById(id);
+        if (image === null) {
+          throw new HTTPException(404, { message: "Not Found" });
+        }
+        assertOwner(user.id, image);
 
-    const artwork = await deps.artworkRepo.findById(artworkId);
-    if (artwork === null) {
-      throw new HTTPException(404, { message: "Not Found" });
-    }
-    assertOwner(user.id, artwork);
+        // R2 を先に消す。R2 削除が失敗したら DB 行は残し、再試行可能にする（FR-07）。
+        await deps.storage.deleteObject(image.r2Key);
+        await deps.imageRepo.delete(id);
 
-    const r2Key = validateNonEmptyString(body.r2Key, "r2Key");
-    const width = validateOptionalDimension(body.width, "width");
-    const height = validateOptionalDimension(body.height, "height");
+        return c.body(null, 204);
+      })
+      // 並び替え（FR-06）。所有 artwork の画像のみを対象に、B3 で差分を算出して反映。
+      // json 入力は `validator` で型を宣言し、web に body 型を伝える（NFR-11 / ADR D5）。
+      .patch(
+        "/artworks/:id/images/order",
+        validator("json", (value) => parseOrderBody(value)),
+        async (c) => {
+        const deps = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const artworkId = c.req.param("id");
+        const { orderedIds } = c.req.valid("json");
 
-    const existing = await deps.imageRepo.listByArtwork(artworkId);
-    const created = await deps.imageRepo.create({
-      artworkId,
-      userId: user.id, // サーバー付与（SEC-01）。
-      r2Key,
-      ...(width !== undefined ? { width } : {}),
-      ...(height !== undefined ? { height } : {}),
-      sortOrder: nextSortOrder(existing),
-    });
+        const artwork = await deps.artworkRepo.findById(artworkId);
+        if (artwork === null) {
+          throw new HTTPException(404, { message: "Not Found" });
+        }
+        assertOwner(user.id, artwork);
 
-    return c.json(created, 201);
-  });
+        // 当該 artwork に属する画像のみ有効（所有外/別 artwork の id は弾く / SEC-01）。
+        const images = await deps.imageRepo.listByArtwork(artworkId);
+        const byId = new Map<string, ArtworkImage>(images.map((i) => [i.id, i]));
 
-  // 画像削除（FR-07）。所有者検証 → R2 オブジェクト削除 → DB 行削除。
-  app.delete("/images/:id", async (c) => {
-    const deps = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const id = c.req.param("id");
+        // リクエスト順から有効な画像だけを残して新しい並びを作る。
+        const orderedItems = orderedIds
+          .map((id) => byId.get(id))
+          .filter((img): img is ArtworkImage => img !== undefined);
 
-    const image = await deps.imageRepo.findById(id);
-    if (image === null) {
-      throw new HTTPException(404, { message: "Not Found" });
-    }
-    assertOwner(user.id, image);
+        // B3: 並びに沿った 0..n の連番を割り当て、変化分のみを抽出する。
+        const normalized = normalizeSortOrders(orderedItems);
+        const diff = normalized.filter(
+          (u) => byId.get(u.id)?.sortOrder !== u.sortOrder,
+        );
 
-    // R2 を先に消す。R2 削除が失敗したら DB 行は残し、再試行可能にする（FR-07）。
-    await deps.storage.deleteObject(image.r2Key);
-    await deps.imageRepo.delete(id);
+        await deps.imageRepo.updateSortOrders(diff);
 
-    return c.body(null, 204);
-  });
-
-  // 並び替え（FR-06）。所有 artwork の画像のみを対象に、B3 で差分を算出して反映。
-  app.patch("/artworks/:id/images/order", async (c) => {
-    const deps = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const artworkId = c.req.param("id");
-    const body = asRecord(await readJson(c));
-
-    const artwork = await deps.artworkRepo.findById(artworkId);
-    if (artwork === null) {
-      throw new HTTPException(404, { message: "Not Found" });
-    }
-    assertOwner(user.id, artwork);
-
-    const orderedIds = parseOrderedIds(body.orderedIds);
-
-    // 当該 artwork に属する画像のみ有効（所有外/別 artwork の id は弾く / SEC-01）。
-    const images = await deps.imageRepo.listByArtwork(artworkId);
-    const byId = new Map<string, ArtworkImage>(images.map((i) => [i.id, i]));
-
-    // リクエスト順から有効な画像だけを残して新しい並びを作る。
-    const orderedItems = orderedIds
-      .map((id) => byId.get(id))
-      .filter((img): img is ArtworkImage => img !== undefined);
-
-    // B3: 並びに沿った 0..n の連番を割り当て、変化分のみを抽出する。
-    const normalized = normalizeSortOrders(orderedItems);
-    const diff = normalized.filter((u) => byId.get(u.id)?.sortOrder !== u.sortOrder);
-
-    await deps.imageRepo.updateSortOrders(diff);
-
-    return c.json({ updated: diff.length });
-  });
-
-  return app;
+        return c.json({ updated: diff.length });
+      })
+  );
 }
 
 /** orderedIds: 文字列配列を検証する。 */

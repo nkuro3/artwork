@@ -181,35 +181,38 @@ async function parseUpdateBody(
  *   `c.set('profileDeps', ...)` してから `app.route('/profile', createProfileRoutes())`。
  */
 export function createProfileRoutes(injectedDeps?: ProfileRoutesDeps) {
-  const app = new Hono<AppEnv>();
+  // メソッドチェーンで合成し、`ReturnType<typeof createProfileRoutes>` に
+  // 各ルートの入出力型を載せる（NFR-11 / ADR D5）。
+  return (
+    new Hono<AppEnv>()
+      // 全エンドポイントで認証必須。
+      .use("*", requireAuth)
+      // 現在ユーザーのプロフィール。無ければ lazy init（FR-03）。
+      .get("/", async (c) => {
+        const { profileRepo } = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const profile = await getOrCreateProfile(profileRepo, user.id);
+        return c.json(profile);
+      })
+      // 部分更新（displayName / slug / bio / isPublic）。所有は現在ユーザーの userId のみ。
+      .patch("/", async (c) => {
+        const { profileRepo } = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const patch = await parseUpdateBody(
+          profileRepo,
+          await readJson(c),
+          user.id,
+        );
 
-  // 全エンドポイントで認証必須。
-  app.use("*", requireAuth);
+        // 未作成でも更新できるよう lazy init を保証してから更新する（FR-03 / 冪等）。
+        await getOrCreateProfile(profileRepo, user.id);
 
-  // 現在ユーザーのプロフィール。無ければ lazy init（FR-03）。
-  app.get("/", async (c) => {
-    const { profileRepo } = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const profile = await getOrCreateProfile(profileRepo, user.id);
-    return c.json(profile);
-  });
-
-  // 部分更新（displayName / slug / bio / isPublic）。所有は現在ユーザーの userId のみ。
-  app.patch("/", async (c) => {
-    const { profileRepo } = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const patch = await parseUpdateBody(profileRepo, await readJson(c), user.id);
-
-    // 未作成でも更新できるよう lazy init を保証してから更新する（FR-03 / 冪等）。
-    await getOrCreateProfile(profileRepo, user.id);
-
-    const updated = await profileRepo.updateByUserId(user.id, patch);
-    if (updated === null) {
-      // getOrCreateProfile 直後なので通常起き得ないが、防御的に 404。
-      throw new HTTPException(404, { message: "Profile not found" });
-    }
-    return c.json(updated);
-  });
-
-  return app;
+        const updated = await profileRepo.updateByUserId(user.id, patch);
+        if (updated === null) {
+          // getOrCreateProfile 直後なので通常起き得ないが、防御的に 404。
+          throw new HTTPException(404, { message: "Profile not found" });
+        }
+        return c.json(updated);
+      })
+  );
 }

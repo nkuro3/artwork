@@ -14,6 +14,7 @@
 
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { validator } from "hono/validator";
 import { assertOwner } from "../lib/auth-guard";
 import {
   type SessionVariables,
@@ -138,17 +139,6 @@ function parseUpdateBody(raw: unknown): UpdateArtworkPatch {
   return patch;
 }
 
-/** JSON ボディを取得（不正な JSON は 400）。 */
-async function readJson(c: {
-  req: { json: () => Promise<unknown> };
-}): Promise<unknown> {
-  try {
-    return await c.req.json();
-  } catch {
-    badRequest("Invalid JSON body");
-  }
-}
-
 /**
  * deps を解決する。明示注入（テスト）を優先し、無ければ context（本番 middleware）から取る。
  */
@@ -171,86 +161,88 @@ function resolveDeps(
  *   `c.set('artworksDeps', ...)` してから `app.route('/artworks', createArtworksRoutes())`。
  */
 export function createArtworksRoutes(injectedDeps?: ArtworksRoutesDeps) {
-  const app = new Hono<AppEnv>();
+  // メソッドチェーンで合成する。チェーンの戻り値を return することで
+  // `ReturnType<typeof createArtworksRoutes>` に各ルートの入出力型が載り、
+  // web の `hc<AppType>()` が型付きアクセスできる（NFR-11 / ADR D5）。
+  return (
+    new Hono<AppEnv>()
+      // 全エンドポイントで認証必須。
+      .use("*", requireAuth)
+      // 一覧（自分のものだけ / FR-05）。
+      .get("/", async (c) => {
+        const { repo } = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const items = await repo.listByUser(user.id);
+        return c.json(items);
+      })
+      // 作成（userId はサーバー付与 / SEC-01。FR-05,08,09）。
+      // json 入力は `validator` で型を宣言し、web の `hc<AppType>()` に body 型を伝える
+      // （NFR-11 / ADR D5）。検証ロジックは従来の parseCreateBody を validator 内で実行し、
+      // 不正フィールドは 400（HTTPException）で従来どおり弾く（挙動不変）。
+      .post("/", validator("json", (value) => parseCreateBody(value)), async (c) => {
+        const { repo, resolveArtistProfileId } = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const parsed = c.req.valid("json");
 
-  // 全エンドポイントで認証必須。
-  app.use("*", requireAuth);
+        const artistProfileId = await resolveArtistProfileId(user.id);
+        if (artistProfileId === null) {
+          throw new HTTPException(400, {
+            message: "Artist profile not found for current user",
+          });
+        }
 
-  // 一覧（自分のものだけ / FR-05）。
-  app.get("/", async (c) => {
-    const { repo } = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const items = await repo.listByUser(user.id);
-    return c.json(items);
-  });
+        const created = await repo.create({
+          ...parsed,
+          userId: user.id,
+          artistProfileId,
+        });
+        return c.json(created, 201);
+      })
+      // 単体取得（所有者検証 / FR-10）。
+      .get("/:id", async (c) => {
+        const { repo } = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const row = await repo.findById(c.req.param("id"));
+        if (row === null) throw new HTTPException(404, { message: "Not Found" });
+        assertOwner(user.id, row);
+        return c.json(row);
+      })
+      // 更新（所有者検証 → 部分更新 / FR-08,09,10）。
+      // json 入力は `validator` で型を宣言し、web に PATCH body 型を伝える（NFR-11 / ADR D5）。
+      .patch("/:id", validator("json", (value) => parseUpdateBody(value)), async (c) => {
+        const { repo } = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const patch = c.req.valid("json");
+        const id = c.req.param("id");
 
-  // 作成（userId はサーバー付与 / SEC-01。FR-05,08,09）。
-  app.post("/", async (c) => {
-    const { repo, resolveArtistProfileId } = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const parsed = parseCreateBody(await readJson(c));
+        const row = await repo.findById(id);
+        if (row === null) throw new HTTPException(404, { message: "Not Found" });
+        assertOwner(user.id, row);
 
-    const artistProfileId = await resolveArtistProfileId(user.id);
-    if (artistProfileId === null) {
-      throw new HTTPException(400, {
-        message: "Artist profile not found for current user",
-      });
-    }
+        const updated = await repo.update(id, patch);
+        if (updated === null)
+          throw new HTTPException(404, { message: "Not Found" });
+        return c.json(updated);
+      })
+      // 削除（所有者検証 → R2 削除 → DB 削除 / FR-07,10）。
+      // DB 行は FK cascade で消えるが R2 オブジェクトは残るため、先に R2 を消す。
+      .delete("/:id", async (c) => {
+        const { repo, imageRepo, storage } = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const id = c.req.param("id");
 
-    const created = await repo.create({
-      ...parsed,
-      userId: user.id,
-      artistProfileId,
-    });
-    return c.json(created, 201);
-  });
+        const row = await repo.findById(id);
+        if (row === null) throw new HTTPException(404, { message: "Not Found" });
+        assertOwner(user.id, row);
 
-  // 単体取得（所有者検証 / FR-10）。
-  app.get("/:id", async (c) => {
-    const { repo } = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const row = await repo.findById(c.req.param("id"));
-    if (row === null) throw new HTTPException(404, { message: "Not Found" });
-    assertOwner(user.id, row);
-    return c.json(row);
-  });
+        // 紐づく画像の R2 オブジェクトを削除（ベストエフォート）。順序は R2 → DB。
+        const images = await imageRepo.listByArtwork(id);
+        for (const image of images) {
+          await storage.deleteObject(image.r2Key);
+        }
 
-  // 更新（所有者検証 → 部分更新 / FR-08,09,10）。
-  app.patch("/:id", async (c) => {
-    const { repo } = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const patch = parseUpdateBody(await readJson(c));
-    const id = c.req.param("id");
-
-    const row = await repo.findById(id);
-    if (row === null) throw new HTTPException(404, { message: "Not Found" });
-    assertOwner(user.id, row);
-
-    const updated = await repo.update(id, patch);
-    if (updated === null) throw new HTTPException(404, { message: "Not Found" });
-    return c.json(updated);
-  });
-
-  // 削除（所有者検証 → R2 削除 → DB 削除 / FR-07,10）。
-  // DB 行は FK cascade で消えるが R2 オブジェクトは残るため、先に R2 を消す。
-  app.delete("/:id", async (c) => {
-    const { repo, imageRepo, storage } = resolveDeps(injectedDeps, c);
-    const user = getCurrentUser(c);
-    const id = c.req.param("id");
-
-    const row = await repo.findById(id);
-    if (row === null) throw new HTTPException(404, { message: "Not Found" });
-    assertOwner(user.id, row);
-
-    // 紐づく画像の R2 オブジェクトを削除（ベストエフォート）。順序は R2 → DB。
-    const images = await imageRepo.listByArtwork(id);
-    for (const image of images) {
-      await storage.deleteObject(image.r2Key);
-    }
-
-    await repo.delete(id);
-    return c.body(null, 204);
-  });
-
-  return app;
+        await repo.delete(id);
+        return c.body(null, 204);
+      })
+  );
 }

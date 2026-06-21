@@ -6,26 +6,11 @@
 // client/fetchImpl を注入して純ロジックとしてテストする（next 非依存）。
 // web は DB に触れず、署名と メタ作成は必ず api 経由（ADR D7）。R2 直 PUT のみ例外。
 
-/** orchestration が使う RPC 部分集合。`createApiClient()` の戻り値が構造的に適合する。 */
-export interface UploadClient {
-  uploads: {
-    sign: {
-      $post: (args: {
-        json: { ext: string; contentType: string };
-      }) => Promise<Response>;
-    };
-  };
-  artworks: {
-    ":id": {
-      images: {
-        $post: (args: {
-          param: { id: string };
-          json: { r2Key: string; width?: number; height?: number };
-        }) => Promise<Response>;
-      };
-    };
-  };
-}
+import type { ApiClient } from "./api";
+
+// C5b: `AppType` に /uploads/sign・/artworks/:id/images のルート型が載ったので、
+// orchestration は型付き RPC クライアント（`ApiClient`）をそのまま受け取る（NFR-11 / ADR D5）。
+export type UploadClient = ApiClient;
 
 export interface UploadDeps {
   client: UploadClient;

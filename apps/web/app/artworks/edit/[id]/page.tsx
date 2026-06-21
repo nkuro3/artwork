@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { asArtworksClient, createApiClient } from "../../../../lib/api";
+import { createApiClient } from "../../../../lib/api";
 import { getArtwork } from "../../../../lib/artworks";
 import { getSession } from "../../../../lib/session";
 import { ArtworkForm } from "../../artwork-form";
@@ -25,7 +25,7 @@ export default async function EditArtworkPage({
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
-  const client = asArtworksClient(createApiClient(cookie ? { cookie } : {}));
+  const client = createApiClient(cookie ? { cookie } : {});
   const result = await getArtwork(client, id);
   if (!result.ok) notFound();
 

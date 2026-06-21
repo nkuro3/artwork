@@ -7,7 +7,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
-import { asProfileClient, createApiClient } from "../../lib/api";
+import { createApiClient } from "../../lib/api";
 import { portfolioTag } from "../../lib/portfolio";
 import {
   getProfile,
@@ -23,7 +23,7 @@ async function clientFromCookies() {
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
-  return asProfileClient(createApiClient(cookie ? { cookie } : {}));
+  return createApiClient(cookie ? { cookie } : {});
 }
 
 /** FormData から更新パッチを組む（送られたフィールドのみ）。 */

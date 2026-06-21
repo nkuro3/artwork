@@ -3,6 +3,8 @@
 // 成功/失敗に正規化する。next 非依存・純ロジックなのでユニットテスト対象（Server
 // Action / 画面は薄いラッパで非対象）。web は DB に触れず、必ず api 経由（ADR D7）。
 
+import type { ApiClient } from "./api";
+
 /** 作品の API 表現（RPC レスポンスを web で扱う最小集合）。日付は JSON 上 string。 */
 export interface Artwork {
   id: string;
@@ -17,21 +19,10 @@ export interface Artwork {
   updatedAt: string;
 }
 
-/** コアが必要とする RPC 部分集合。`createApiClient()` の戻り値が構造的に適合する。 */
-export interface ArtworksClient {
-  artworks: {
-    $get: (args?: unknown) => Promise<Response>;
-    $post: (args: { json: CreateArtworkInput }) => Promise<Response>;
-    ":id": {
-      $get: (args: { param: { id: string } }) => Promise<Response>;
-      $patch: (args: {
-        param: { id: string };
-        json: UpdateArtworkPatch;
-      }) => Promise<Response>;
-      $delete: (args: { param: { id: string } }) => Promise<Response>;
-    };
-  };
-}
+// C5b: `AppType` に /artworks のルート型が載ったので、コアは型付き RPC クライアント
+// （`ApiClient` = `hc<AppType>()`）をそのまま受け取る。以前の構造的部分集合インターフェース
+// は cast 前提で型安全でなかったため廃止し、hc 由来の精密な型に揃えた（NFR-11 / ADR D5）。
+export type ArtworksClient = ApiClient;
 
 /** 作成入力（userId/artistProfileId はサーバー付与なので含めない / SEC-01）。 */
 export interface CreateArtworkInput {

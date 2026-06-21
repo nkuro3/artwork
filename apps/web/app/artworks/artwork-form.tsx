@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { asUploadClient, createBrowserApiClient } from "../../lib/api";
+import { createBrowserApiClient } from "../../lib/api";
 import { uploadArtworkImage } from "../../lib/upload";
 import { createArtworkAction, updateArtworkAction } from "./actions";
 
@@ -51,7 +51,7 @@ export function ArtworkForm({ artworkId, defaults }: ArtworkFormProps) {
 
     // 2) 画像をブラウザから署名 URL → R2 直 PUT → メタ作成（複数可 / FR-06）。
     if (files.length > 0) {
-      const client = asUploadClient(createBrowserApiClient());
+      const client = createBrowserApiClient();
       for (const file of files) {
         const result = await uploadArtworkImage(
           { client },

@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { asProfileClient, createApiClient } from "../../lib/api";
+import { createApiClient } from "../../lib/api";
 import { getProfile } from "../../lib/profile";
 import { getSession } from "../../lib/session";
 import { SettingsForm } from "./settings-form";
@@ -20,7 +20,7 @@ export default async function SettingsPage() {
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
-  const client = asProfileClient(createApiClient(cookie ? { cookie } : {}));
+  const client = createApiClient(cookie ? { cookie } : {});
   const result = await getProfile(client);
 
   if (!result.ok) {

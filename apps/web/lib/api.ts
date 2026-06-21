@@ -1,9 +1,5 @@
 import type { AppType } from "@artwork/api";
 import { hc } from "hono/client";
-import type { ArtworksClient } from "./artworks";
-import type { PortfolioClient } from "./portfolio";
-import type { ProfileClient } from "./profile";
-import type { UploadClient } from "./upload";
 
 // D1 Hono RPC クライアント（NFR-11 / ADR D6 / D4）。
 // 型は `@artwork/api` の `AppType` を import type で取り込み（実行時依存は持たない）、
@@ -72,32 +68,7 @@ export function createBrowserApiClient(): ApiClient {
   });
 }
 
-// ── 構造的クライアント・アダプタ ────────────────────────────────
-// hono RPC クライアントは Proxy でパスを実行時に組み立てるため `client.artworks.$post`
-// などは実行時に必ず存在する。一方、api 側の各ルート（createArtworksRoutes 等）は
-// `app.get(...)` 形式の登録で `typeof` にルートスキーマが載らず、`AppType` には
-// /artworks や /uploads の静的型が現れない（C5/RPC 型公開の既知の制約。D3 の範囲外）。
-//
-// D3 のコア関数（lib/artworks / lib/upload）は最小の構造的インターフェースに依存する
-// 設計なので、ここで実行時クライアントを一度だけそのインターフェースへ橋渡しする。
-// 型の不一致は「api の RPC 型が未整備」という 1 点に閉じ込め、cast はこの 2 関数に限定する。
-
-/** 作品 CRUD コア（lib/artworks）へ渡す構造的クライアント。 */
-export function asArtworksClient(client: ApiClient): ArtworksClient {
-  return client as unknown as ArtworksClient;
-}
-
-/** 画像アップロード orchestration（lib/upload）へ渡す構造的クライアント。 */
-export function asUploadClient(client: ApiClient): UploadClient {
-  return client as unknown as UploadClient;
-}
-
-/** 設定コア（lib/profile）へ渡す構造的クライアント（D4 / C5b 未対応の RPC 型ギャップを閉じる）。 */
-export function asProfileClient(client: ApiClient): ProfileClient {
-  return client as unknown as ProfileClient;
-}
-
-/** 公開ポートフォリオコア（lib/portfolio）へ渡す構造的クライアント（D5 / C5b 未対応の RPC 型ギャップを閉じる）。 */
-export function asPortfolioClient(client: ApiClient): PortfolioClient {
-  return client as unknown as PortfolioClient;
-}
+// C5b: api の各ルートを Hono のメソッドチェーン記法にしたことで `AppType` に
+// artworks / images / uploads / portfolio / profile の静的型が載るようになり、
+// `hc<AppType>()`（= ApiClient）を各コア関数へ型付きのまま直接渡せる（NFR-11 / ADR D5）。
+// 以前あった `asArtworksClient` 等の cast アダプタは不要になったため削除した。
