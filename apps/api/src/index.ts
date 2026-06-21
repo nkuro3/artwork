@@ -18,6 +18,10 @@ import {
   type PortfolioRoutesDeps,
   createPortfolioRoutes,
 } from "./routes/portfolio";
+import {
+  type ProfileRoutesDeps,
+  createProfileRoutes,
+} from "./routes/profile";
 import { type SearchRoutesDeps, createSearchRoutes } from "./routes/search";
 // 公開 DTO 型を `@artwork/shared` 経由で web に渡すため re-export する（NFR-11 / ADR D5）。
 export type {
@@ -25,6 +29,7 @@ export type {
   SearchArtworkDto,
   SearchResponseDto,
 } from "./routes/search";
+import { createArtistProfileRepository } from "./repositories/artist-profile-repository";
 import { createArtworkRepository } from "./repositories/artwork-repository";
 import { createArtworkImageRepository } from "./repositories/image-repository";
 import { createPortfolioRepository } from "./repositories/portfolio-repository";
@@ -40,6 +45,7 @@ type AppEnv = {
     imageDeps?: ImageRoutesDeps;
     portfolioDeps?: PortfolioRoutesDeps;
     searchDeps?: SearchRoutesDeps;
+    profileDeps?: ProfileRoutesDeps;
   };
 };
 
@@ -89,6 +95,15 @@ const artworksDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
 // repo / storage は env 依存のためリクエストごとに deps を生成して context に載せる。
 // 所有者検証はルート層の assertOwner で担保（SEC-01）。FR-07 の R2 削除は storage 経由。
 // 注意: ルート mount より前に登録する（mount 後の use は当該パスのハンドラ前に走らない）。
+// プロフィール（C7 / FR-03,11 / SEC-01）の deps。GET の lazy init / PATCH の更新で使う。
+// repo は env(DATABASE_URL) 依存のためリクエストごとに生成して context に載せる。
+// 認証必須ルートのためセッション middleware より「後」に置く。
+const profileDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const db = createDb(c.env.DATABASE_URL);
+  c.set("profileDeps", { profileRepo: createArtistProfileRepository(db) });
+  await next();
+};
+
 const imageDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   const db = createDb(c.env.DATABASE_URL);
   const storage = createStorageClient({
@@ -127,10 +142,13 @@ const app = new Hono<AppEnv>()
   .use("*", (c, next) =>
     createSessionMiddleware<AppEnv>(createAuth(c.env))(c, next),
   )
+  .use("/profile", profileDepsMiddleware)
   .use("/artworks/*", artworksDepsMiddleware)
   .use("/uploads/*", imageDepsMiddleware)
   .use("/images/*", imageDepsMiddleware)
   .use("/artworks/*", imageDepsMiddleware)
+  // C7 プロフィール API（GET lazy init / PATCH 更新 / FR-03,11 / SEC-01）。
+  .route("/profile", createProfileRoutes())
   // C2 作品 CRUD。
   .route("/artworks", createArtworksRoutes())
   // 画像ルートはルート直下にマウントする（/uploads/sign・/images/:id・/artworks/:id/images*）。
