@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
+import { cors } from "hono/cors";
 import { createDb } from "@artwork/database";
 import { artistProfile } from "@artwork/database/schema";
 import type { AppBindings } from "./env";
@@ -124,6 +125,23 @@ const imageDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
 // 入出力型が載らず、web（D1）の `hc<AppType>()` 型付きアクセスが効かない（NFR-11 / ADR D5）。
 // 登録順・middleware の前後関係はリファクタ前と不変に保つ。
 const app = new Hono<AppEnv>()
+  // Ec ローカル dev CORS（SEC-03 / D2 申し送り）。ルート群の前に最優先で適用する。
+  // - origin: WEB_ORIGIN と一致したオリジンのみ許可。未設定なら CORS ヘッダを付けない
+  //   （本番は同一オリジン / ADR D4 で CORS 不要 → デフォルト安全）。
+  // - credentials: true（Cookie ベースのセッションを跨オリジンで送受信するため）。
+  //   credentials 併用時は `*` 不可なので明示 origin を返す。
+  // - localhost:3000 と :8787 は same-site のため SameSite=Lax のままで Cookie は通る（SameSite=None 不要）。
+  .use("*", (c, next) => {
+    const allowed = c.env?.WEB_ORIGIN;
+    // 未設定なら CORS を一切付けない（本番同一オリジンで無害 / ADR D4）。
+    if (!allowed) return next();
+    return cors({
+      origin: (origin) => (origin === allowed ? origin : null),
+      credentials: true,
+      allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+      allowHeaders: ["Content-Type", "Authorization"],
+    })(c, next);
+  })
   // ヘルスチェックは認証も Better Auth も不要（疎通確認用 / A1）。
   .get("/health", (c) => c.json({ status: "ok" }))
   // Better Auth のハンドラを /api/auth/* にマウント。

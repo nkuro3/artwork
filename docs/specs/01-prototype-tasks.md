@@ -45,7 +45,7 @@
 ## Phase E — 統合・本番結線（🔒 あなたの認証情報が必要）
 
 - [x] **C5b RPC AppType 型整備** `@api` — api の各ルートを Hono のチェーン記法 + `validator("json")` で入力型も載せ、`AppType=typeof app` に全エンドポイント型が載る。web の `asArtworksClient`/`asUploadClient`/`asProfileClient`/`asPortfolioClient` cast を**全除去**（本番コードの cast ゼロ）。`hc<AppType>` 型レベルスモーク7ケース追加（web 93）。NFR-11/D5。注: profile PATCH のみ DB 非同期検証のため json 入力型は緩い（param 無しで成立）。全ゲート緑。
-- [ ] **Ec ローカル dev CORS** `@api` — ローカルで web(:3000)↔api(:8787) が別オリジンのため、api に Hono `cors` を追加（`origin: http://localhost:3000` 等を許可、`credentials: true`）。本番は同一オリジン（ADR D4）なので dev 限定 or 環境変数で許可オリジンを切替。Better Auth の Cookie（SameSite）も合わせて確認。先にテスト（プリフライト/許可ヘッダ）。SEC-03 / D2 申し送り。
+- [x] **Ec ローカル dev CORS** `@api` — api に Hono `cors` を最上段適用。`origin=WEB_ORIGIN`（env、完全一致のみ反射）、`credentials: true`、未設定時は CORS ヘッダ無し（本番同一オリジンで安全）。プリフライトは cors 層で短絡（セッション/DB に到達しない）。`env.ts` に WEB_ORIGIN、`.env.example`/`.dev.vars` に追記。Cookie は localhost が same-site のため SameSite=Lax のままで可。5ケース緑（api 188）。SEC-03。
 
 - [ ] **E1 🔒 プロビジョニング** — Neon ブランチ + `DATABASE_URL`、R2 バケット + S3 キー、`BETTER_AUTH_SECRET`、`wrangler.toml`（api `[vars]`/secret、web ルート）、Cloudflare ルート `/api/*` → api Worker、R2 カスタムドメイン + Image Resizing 有効化。`.dev.vars` 整備。
 - [ ] **E2 🔒 マイグレーション適用 + e2e スモーク** — Neon に migrate 適用。skip していた統合テストを有効化。サインアップ→作品作成→画像アップロード→公開→ポートフォリオ閲覧を通す（`/verify` 併用）。

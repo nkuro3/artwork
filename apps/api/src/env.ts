@@ -21,6 +21,12 @@ export interface AppBindings {
   R2_BUCKET_NAME: string;
   /** 画像配信（Cloudflare Images / cdn-cgi）のベース URL。 */
   IMAGE_BASE_URL: string;
+  /**
+   * CORS で許可するブラウザオリジン（例 `http://localhost:3000`）。
+   * ローカル dev は web(:3000) と api(:8787) が別オリジンのため設定する（SEC-03 / D2）。
+   * 本番は同一オリジン（ADR D4）なので未設定でよく、未設定時は CORS ヘッダを付けない。
+   */
+  WEB_ORIGIN?: string;
 }
 
 /** Hono の `Bindings` として使うエイリアス。 */
