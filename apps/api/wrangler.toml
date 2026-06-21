@@ -8,10 +8,12 @@ compatibility_flags = ["nodejs_compat"]
 # - 本番: `wrangler secret put DATABASE_URL` などで設定（ADR D11）
 
 # 本番ルーティング（ADR D4）: 1 ドメインで /api/* を api Worker に振る。
-# ゾーン（ドメイン）を Cloudflare に追加してから有効化する。
-# routes = [
-#   { pattern = "example.com/api/*", zone_name = "example.com" }
-# ]
+# 注意: deploy 時にゾーン artwork-store.jp が Cloudflare アカウントに
+# 追加済み（アクティブ）である必要がある（手順 ⑧）。未追加だと deploy が失敗する。
+# web Worker 側は artwork-store.jp/* を取り、より具体的な /api/* が api に優先される。
+routes = [
+  { pattern = "artwork-store.jp/api/*", zone_name = "artwork-store.jp" }
+]
 
 # 画像は presigned PUT（S3 API, aws4fetch）で R2 へ直接アップロードするため
 # R2 binding は必須ではない（ADR D10）。binding 経由にする場合のみ下を有効化:
