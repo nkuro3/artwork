@@ -19,7 +19,7 @@
 - [x] **B3 sort_order** `@api` — 並び替え（挿入・移動）ロジック。先にテスト。FR-09 / FR-13。`apps/api/src/lib/sort-order.ts`: `moveItem`/`normalizeSortOrders`/`nextSortOrder`/`reorder`(変化分のみ差分)、全て不変。21ケース緑。
 - [x] **B4 公開可視判定** `@api` — `is_public === true && status === 'published'` のフィルタ。先にテスト。FR-12。`apps/api/src/lib/visibility.ts`: `isArtworkPublic`/`filterPublicArtworks`(sortOrder昇順・不変)。ArtworkStatus はスキーマ enum 由来。10ケース緑。
 - [x] **B5 画像 URL 生成** `@api` — `src/lib/image/`。`/cdn-cgi/image/width=.../<r2_key>` を用途別幅で生成。先にテスト。FR-15 / NFR-03。`apps/api/src/lib/image/url.ts`: `buildImageUrl`/`thumbnailUrl`(400)/`largeUrl`(1600)、純粋（baseUrl 引数）。12ケース緑。
-- [ ] **B6 R2 署名 URL** `@api` — `src/lib/storage.ts`。aws4fetch で短命・スコープ限定の presigned PUT を組立（鍵はモック）。先にテストで署名入力を検証。NFR-02 / SEC-06。
+- [x] **B6 R2 署名 URL** `@api` — `src/lib/storage.ts`。aws4fetch で短命・スコープ限定の presigned PUT を組立（鍵はモック）。先にテストで署名入力を検証。NFR-02 / SEC-06。`createStorageClient`(presignPutUrl/objectEndpoint)、`generateR2Key`(乱数注入で推測不能キー)、既定 expiresIn=300、contentType 拘束対応。16ケース緑。
 - [ ] **B7 検索クエリ組立** `@api` — pg_trgm の類似度/部分一致 SQL フラグメント生成。先にテスト。FR-17 / NFR-05。
 
 ## Phase C — API（Hono RPC）
