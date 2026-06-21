@@ -10,7 +10,7 @@
 ## Phase A — 基盤（自走可）
 
 - [x] **A1 ツールチェーン** — `bun install`。素の vitest を全ワークスペースに導入、`turbo` に test/lint パイプライン、`packages/config` に共通 tsconfig（`./typescript`）+ ESLint flat config（`./eslint`）。各ワークスペースに `tsconfig.json` と最小ソース（api: Hono health、web: 最小 App Router）。受入達成: `bun run test` / `typecheck` / `lint` すべて緑。<br>※ `@cloudflare/vitest-pool-workers` は vitest バージョンを厳密固定し未知を抱えるため **C1 に延期**。Phase B の純ロジックは素の vitest で回す。
-- [ ] **A2 DB スキーマ** `@database` — `artist_profile` / `artwork` / `artwork_image` + Better Auth テーブル（user, session, account, verification）を `schema.ts` に定義。`bun run db:generate` でマイグレーション生成。末尾に **pg_trgm 拡張 + 検索列の GIN index** を手書き追記（NFR-05）。受入: マイグレーション SQL 生成、スキーマ型テスト緑。
+- [x] **A2 DB スキーマ** `@database` — `artist_profile` / `artwork` / `artwork_image` + Better Auth テーブル（user, session, account, verification）を `schema.ts` に定義。`bun run db:generate` でマイグレーション生成。末尾に **pg_trgm 拡張 + 検索列の GIN index** を手書き追記（NFR-05）。受入達成: 27 ケースの schema テスト緑、`0000_*.sql` 生成 + pg_trgm/GIN(trgm) 3本手書き。Better Auth テーブルは `@better-auth/core` の `getAuthTables` から写経。Neon 適用は未実施（別スライス）。
 
 ## Phase B — ドメインロジック（純ロジック・自走可・TDD が最も効く）
 
