@@ -68,7 +68,7 @@ export async function getProfile(
   client: ProfileClient,
 ): Promise<Result<Profile>> {
   try {
-    const res = await client.profile.$get();
+    const res = await client.api.profile.$get();
     if (!res.ok) return fail(await errorFrom(res));
     return ok(toProfile(await res.json()));
   } catch (e) {
@@ -101,7 +101,7 @@ export async function updateProfile(
   if (patch.isPublic !== undefined) json.isPublic = patch.isPublic;
 
   try {
-    const res = await client.profile.$patch({ json });
+    const res = await client.api.profile.$patch({ json });
     if (!res.ok) return fail(await errorFrom(res));
     return ok(toProfile(await res.json()));
   } catch (e) {

@@ -32,8 +32,11 @@ function mockClient(overrides: Partial<Mocks> = {}) {
       .mockResolvedValue(json({ id: "img1", r2Key: "artworks/abc.png" }));
 
   const client = {
-    uploads: { sign: { $post: sign } },
-    artworks: { ":id": { images: { $post: meta } } },
+    // E0: 全 api ルートを /api 配下へ寄せたため、hc のアクセスは client.api.* になる（ADR D4）。
+    api: {
+      uploads: { sign: { $post: sign } },
+      artworks: { ":id": { images: { $post: meta } } },
+    },
   } as unknown as UploadClient;
 
   return { client, sign, meta };

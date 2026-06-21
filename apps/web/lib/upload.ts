@@ -71,7 +71,7 @@ export async function uploadArtworkImage(
 
   try {
     // 1) 署名 URL 発行。
-    const signRes = await client.uploads.sign.$post({
+    const signRes = await client.api.uploads.sign.$post({
       json: { ext: extOf(input.file), contentType },
     });
     if (!signRes.ok) {
@@ -102,7 +102,7 @@ export async function uploadArtworkImage(
     if (input.width !== undefined) metaJson.width = input.width;
     if (input.height !== undefined) metaJson.height = input.height;
 
-    const metaRes = await client.artworks[":id"].images.$post({
+    const metaRes = await client.api.artworks[":id"].images.$post({
       param: { id: input.artworkId },
       json: metaJson,
     });

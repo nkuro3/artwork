@@ -38,7 +38,8 @@ import { createSearchRepository } from "./repositories/search-repository";
 import { createStorageClient } from "./lib/storage";
 
 // api Worker のエントリ。
-// Better Auth は /api/auth/* にマウント（ADR D6）、CRUD は /artworks 等（Phase C / NFR-11）。
+// Better Auth は /api/auth/* にマウント（ADR D6）、CRUD は /api/artworks 等（Phase C / NFR-11）。
+// 本番は同一オリジン・パスルーティングで /api/* のみ api Worker に届くため全ルートを /api 配下に置く（ADR D4）。
 type AppEnv = {
   Bindings: AppBindings;
   Variables: SessionVariables & {
@@ -143,35 +144,37 @@ const app = new Hono<AppEnv>()
     })(c, next);
   })
   // ヘルスチェックは認証も Better Auth も不要（疎通確認用 / A1）。
-  .get("/health", (c) => c.json({ status: "ok" }))
+  // 本番は同一オリジン・パスルーティングで /api/* のみ api Worker に届く（ADR D4）。
+  .get("/api/health", (c) => c.json({ status: "ok" }))
   // Better Auth のハンドラを /api/auth/* にマウント。
   // （サインアップ/サインイン等。セッション middleware はここでは不要。）
   .on(["POST", "GET"], "/api/auth/*", (c) =>
     createAuth(c.env).handler(c.req.raw),
   )
   // 公開ポートフォリオ（C4 / FR-11,12,13,15 / NFR-06）。未認証読み取り。
-  .use("/portfolio/*", portfolioDepsMiddleware)
-  .route("/portfolio", createPortfolioRoutes())
+  .use("/api/portfolio/*", portfolioDepsMiddleware)
+  .route("/api/portfolio", createPortfolioRoutes())
   // 公開検索（C5 / FR-17 / NFR-05 / NFR-06）。未認証の公開ディスカバリ。
-  .use("/search", searchDepsMiddleware)
-  .route("/", createSearchRoutes())
+  // createSearchRoutes 内は GET /search なので /api マウントで /api/search になる。
+  .use("/api/search", searchDepsMiddleware)
+  .route("/api", createSearchRoutes())
   // 以降のアプリルート（Phase C の CRUD 等）はセッションを解決して
   // user / session を context に載せる（無ければ null / ADR D6）。
   .use("*", (c, next) =>
     createSessionMiddleware<AppEnv>(createAuth(c.env))(c, next),
   )
-  .use("/profile", profileDepsMiddleware)
-  .use("/artworks/*", artworksDepsMiddleware)
-  .use("/uploads/*", imageDepsMiddleware)
-  .use("/images/*", imageDepsMiddleware)
-  .use("/artworks/*", imageDepsMiddleware)
+  .use("/api/profile", profileDepsMiddleware)
+  .use("/api/artworks/*", artworksDepsMiddleware)
+  .use("/api/uploads/*", imageDepsMiddleware)
+  .use("/api/images/*", imageDepsMiddleware)
+  .use("/api/artworks/*", imageDepsMiddleware)
   // C7 プロフィール API（GET lazy init / PATCH 更新 / FR-03,11 / SEC-01）。
-  .route("/profile", createProfileRoutes())
+  .route("/api/profile", createProfileRoutes())
   // C2 作品 CRUD。
-  .route("/artworks", createArtworksRoutes())
-  // 画像ルートはルート直下にマウントする（/uploads/sign・/images/:id・/artworks/:id/images*）。
-  // C2 の /artworks（/、/:id）とはパス深度が異なり衝突しない（Hono は登録順 + パスで解決）。
-  .route("/", createImageRoutes());
+  .route("/api/artworks", createArtworksRoutes())
+  // 画像ルートは /api 配下にマウントする（/api/uploads/sign・/api/images/:id・/api/artworks/:id/images*）。
+  // C2 の /api/artworks（/、/:id）とはパス深度が異なり衝突しない（Hono は登録順 + パスで解決）。
+  .route("/api", createImageRoutes());
 
 /**
  * Hono RPC クライアント用のアプリ型（NFR-11 / ADR D5）。

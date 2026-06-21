@@ -78,7 +78,7 @@ export async function listArtworks(
   client: ArtworksClient,
 ): Promise<Result<Artwork[]>> {
   try {
-    const res = await client.artworks.$get();
+    const res = await client.api.artworks.$get();
     if (!res.ok) return fail(await errorFrom(res));
     const data = (await res.json()) as Artwork[];
     return ok(data);
@@ -93,7 +93,7 @@ export async function getArtwork(
   id: string,
 ): Promise<Result<Artwork>> {
   try {
-    const res = await client.artworks[":id"].$get({ param: { id } });
+    const res = await client.api.artworks[":id"].$get({ param: { id } });
     if (!res.ok) return fail(await errorFrom(res));
     return ok((await res.json()) as Artwork);
   } catch (e) {
@@ -116,7 +116,7 @@ export async function createArtwork(
   if (input.sortOrder !== undefined) json.sortOrder = input.sortOrder;
 
   try {
-    const res = await client.artworks.$post({ json });
+    const res = await client.api.artworks.$post({ json });
     if (!res.ok) return fail(await errorFrom(res));
     return ok((await res.json()) as Artwork);
   } catch (e) {
@@ -142,7 +142,7 @@ export async function updateArtwork(
   if (patch.sortOrder !== undefined) json.sortOrder = patch.sortOrder;
 
   try {
-    const res = await client.artworks[":id"].$patch({ param: { id }, json });
+    const res = await client.api.artworks[":id"].$patch({ param: { id }, json });
     if (!res.ok) return fail(await errorFrom(res));
     return ok((await res.json()) as Artwork);
   } catch (e) {
@@ -156,7 +156,7 @@ export async function deleteArtwork(
   id: string,
 ): Promise<Result<null>> {
   try {
-    const res = await client.artworks[":id"].$delete({ param: { id } });
+    const res = await client.api.artworks[":id"].$delete({ param: { id } });
     if (!res.ok) return fail(await errorFrom(res));
     return ok(null);
   } catch (e) {

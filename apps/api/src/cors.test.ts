@@ -34,7 +34,7 @@ describe("CORS (Ec)", () => {
 
   it("WEB_ORIGIN 設定時、実リクエストにも許可ヘッダが付く", async () => {
     const res = await app.request(
-      "/health",
+      "/api/health",
       {
         method: "GET",
         headers: { Origin: WEB_ORIGIN },
@@ -47,7 +47,7 @@ describe("CORS (Ec)", () => {
 
   it("WEB_ORIGIN 未設定時は CORS 許可ヘッダを付けない（本番デフォルト安全）", async () => {
     const res = await app.request(
-      "/health",
+      "/api/health",
       {
         method: "GET",
         headers: { Origin: WEB_ORIGIN },
@@ -60,7 +60,7 @@ describe("CORS (Ec)", () => {
 
   it("WEB_ORIGIN と異なる Origin には許可を与えない", async () => {
     const res = await app.request(
-      "/health",
+      "/api/health",
       {
         method: "GET",
         headers: { Origin: "https://evil.example.com" },
@@ -72,8 +72,8 @@ describe("CORS (Ec)", () => {
     );
   });
 
-  it("既存の /health が壊れていない（200）", async () => {
-    const res = await app.request("/health", {}, envWith({}));
+  it("既存の /api/health が壊れていない（200）", async () => {
+    const res = await app.request("/api/health", {}, envWith({}));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: "ok" });
   });

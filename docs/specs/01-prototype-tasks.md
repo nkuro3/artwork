@@ -44,6 +44,8 @@
 
 ## Phase E — 統合・本番結線（🔒 あなたの認証情報が必要）
 
+- [x] **E0 全 api ルートを `/api` 配下へ（D4 本番ルーティング整合）** `@api` — 現状 Better Auth 以外がルート直下にあり、本番の `/api/*` → api Worker（ADR D4 同一オリジン）で auth 以外が届かない。index.ts の mount を全て `/api` 接頭辞に（`/api/health`・`/api/portfolio`・`/api/search`・`/api/profile`・`/api/artworks`・`/api/uploads/sign`・`/api/images/:id` 等。Better Auth は既に `/api/auth`）。middleware のパスパターンも同様に更新。`AppType` が `/api/...` になるので web の `hc<AppType>` 呼び出し（artworks/upload/profile/portfolio の各 lib）を `client.api.*` に追従、api-types スモークも更新。**サブアプリ単体テストは内部パス不変なので無改修**、index/cors の root パステストのみ `/api/...` に。先にテスト更新で赤確認 → 緑。全ゲート緑必須。
+
 - [x] **C5b RPC AppType 型整備** `@api` — api の各ルートを Hono のチェーン記法 + `validator("json")` で入力型も載せ、`AppType=typeof app` に全エンドポイント型が載る。web の `asArtworksClient`/`asUploadClient`/`asProfileClient`/`asPortfolioClient` cast を**全除去**（本番コードの cast ゼロ）。`hc<AppType>` 型レベルスモーク7ケース追加（web 93）。NFR-11/D5。注: profile PATCH のみ DB 非同期検証のため json 入力型は緩い（param 無しで成立）。全ゲート緑。
 - [x] **Ec ローカル dev CORS** `@api` — api に Hono `cors` を最上段適用。`origin=WEB_ORIGIN`（env、完全一致のみ反射）、`credentials: true`、未設定時は CORS ヘッダ無し（本番同一オリジンで安全）。プリフライトは cors 層で短絡（セッション/DB に到達しない）。`env.ts` に WEB_ORIGIN、`.env.example`/`.dev.vars` に追記。Cookie は localhost が same-site のため SameSite=Lax のままで可。5ケース緑（api 188）。SEC-03。
 

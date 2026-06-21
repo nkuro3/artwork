@@ -32,9 +32,12 @@ function mockClient(overrides: Partial<MockShape> = {}) {
   const patch = vi.fn().mockResolvedValue(res({ ...SAMPLE, displayName: "朝" }));
 
   const client = {
-    profile: {
-      $get: overrides.get ?? get,
-      $patch: overrides.patch ?? patch,
+    // E0: 全 api ルートを /api 配下へ寄せたため、hc のアクセスは client.api.* になる（ADR D4）。
+    api: {
+      profile: {
+        $get: overrides.get ?? get,
+        $patch: overrides.patch ?? patch,
+      },
     },
   } as unknown as ProfileClient;
 

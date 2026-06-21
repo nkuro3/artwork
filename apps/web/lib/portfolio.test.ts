@@ -47,8 +47,11 @@ const SAMPLE: PortfolioDto = {
 function mockClient(get?: ReturnType<typeof vi.fn>) {
   const fn = get ?? vi.fn().mockResolvedValue(res(SAMPLE));
   const client = {
-    portfolio: {
-      ":slug": { $get: fn },
+    // E0: 全 api ルートを /api 配下へ寄せたため、hc のアクセスは client.api.* になる（ADR D4）。
+    api: {
+      portfolio: {
+        ":slug": { $get: fn },
+      },
     },
   } as unknown as PortfolioClient;
   return { client, get: fn };

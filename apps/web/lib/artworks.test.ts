@@ -42,19 +42,22 @@ function mockClient(overrides: Partial<MockShape> = {}) {
   const get = vi.fn().mockResolvedValue(res(SAMPLE));
 
   const client = {
-    artworks: Object.assign(
-      {
-        $get: overrides.list ?? list,
-        $post: overrides.post ?? post,
-      },
-      {
-        ":id": {
-          $get: overrides.get ?? get,
-          $patch: overrides.patch ?? patch,
-          $delete: overrides.del ?? del,
+    // E0: 全 api ルートを /api 配下へ寄せたため、hc のアクセスは client.api.* になる（ADR D4）。
+    api: {
+      artworks: Object.assign(
+        {
+          $get: overrides.list ?? list,
+          $post: overrides.post ?? post,
         },
-      },
-    ),
+        {
+          ":id": {
+            $get: overrides.get ?? get,
+            $patch: overrides.patch ?? patch,
+            $delete: overrides.del ?? del,
+          },
+        },
+      ),
+    },
   } as unknown as ArtworksClient;
 
   return { client, list, post, patch, del, get };

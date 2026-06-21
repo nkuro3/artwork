@@ -104,7 +104,7 @@ export async function getPortfolio(
   slug: string,
 ): Promise<Result<PortfolioDto>> {
   try {
-    const res = await client.portfolio[":slug"].$get({ param: { slug } });
+    const res = await client.api.portfolio[":slug"].$get({ param: { slug } });
     if (res.status === 404) {
       return { ok: false, notFound: true, error: "Not Found" };
     }

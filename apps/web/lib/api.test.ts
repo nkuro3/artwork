@@ -52,7 +52,7 @@ describe("createApiClient", () => {
       cookie: "better-auth.session_token=abc",
       fetch: fetchMock as unknown as typeof fetch,
     });
-    await client.health.$get();
+    await client.api.health.$get();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(lastCall().headers.get("cookie")).toBe(
@@ -64,7 +64,7 @@ describe("createApiClient", () => {
     const client = createApiClient({
       fetch: fetchMock as unknown as typeof fetch,
     });
-    await client.health.$get();
+    await client.api.health.$get();
 
     expect(lastCall().headers.get("cookie")).toBeNull();
   });
@@ -76,9 +76,9 @@ describe("createApiClient", () => {
       const client = createApiClient({
         fetch: fetchMock as unknown as typeof fetch,
       });
-      await client.health.$get();
+      await client.api.health.$get();
       // 相対ベース（空）→ hc は origin 無しの URL を組む。
-      expect(lastCall().url).toContain("/health");
+      expect(lastCall().url).toContain("/api/health");
     } finally {
       if (original !== undefined) process.env.API_URL = original;
     }
@@ -89,7 +89,7 @@ describe("createApiClient", () => {
       baseUrl: "http://localhost:8787",
       fetch: fetchMock as unknown as typeof fetch,
     });
-    await client.health.$get();
-    expect(lastCall().url).toBe("http://localhost:8787/health");
+    await client.api.health.$get();
+    expect(lastCall().url).toBe("http://localhost:8787/api/health");
   });
 });
