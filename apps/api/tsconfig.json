@@ -1,0 +1,7 @@
+{
+  "extends": "@artwork/config/typescript",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types"]
+  },
+  "include": ["src"]
+}

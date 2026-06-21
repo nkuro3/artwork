@@ -9,7 +9,7 @@
 
 ## Phase A — 基盤（自走可）
 
-- [ ] **A1 ツールチェーン** — `bun install`。vitest 導入（api は `@cloudflare/vitest-pool-workers`、packages は素の vitest）。`turbo.json` に `test` パイプライン追加。`packages/config` に共通 tsconfig / lint。受入: `bun run test`（0 件で可）/ `bun run typecheck` / `bun run lint` が通る。
+- [x] **A1 ツールチェーン** — `bun install`。素の vitest を全ワークスペースに導入、`turbo` に test/lint パイプライン、`packages/config` に共通 tsconfig（`./typescript`）+ ESLint flat config（`./eslint`）。各ワークスペースに `tsconfig.json` と最小ソース（api: Hono health、web: 最小 App Router）。受入達成: `bun run test` / `typecheck` / `lint` すべて緑。<br>※ `@cloudflare/vitest-pool-workers` は vitest バージョンを厳密固定し未知を抱えるため **C1 に延期**。Phase B の純ロジックは素の vitest で回す。
 - [ ] **A2 DB スキーマ** `@database` — `artist_profile` / `artwork` / `artwork_image` + Better Auth テーブル（user, session, account, verification）を `schema.ts` に定義。`bun run db:generate` でマイグレーション生成。末尾に **pg_trgm 拡張 + 検索列の GIN index** を手書き追記（NFR-05）。受入: マイグレーション SQL 生成、スキーマ型テスト緑。
 
 ## Phase B — ドメインロジック（純ロジック・自走可・TDD が最も効く）

@@ -11,7 +11,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "drizzle-orm": "latest",
@@ -19,6 +21,7 @@
   },
   "devDependencies": {
     "@artwork/config": "workspace:*",
+    "@types/node": "^20",
     "drizzle-kit": "latest",
     "typescript": "^5"
   }
