@@ -39,7 +39,7 @@
 - [x] **D3 作品管理 UI** `@web` — 一覧 / 作成 / 編集 / 削除（Server Action → api）。画像アップロードは署名 URL → R2 直 PUT → メタ通知。FR-05,06。`lib/artworks.ts`(list/get/create/update/delete、client 注入)、`lib/upload.ts`(sign→PUT→メタ作成、fetch 注入)、actions.ts、画面 /artworks・new・edit/[id]。22ケース緑。申し送り→C5b（AppType 型整備）。
 - [x] **D4 設定** `@web` — プロフィール / slug / 公開設定。FR-03。`lib/profile.ts`(getProfile/updateProfile、client 注入、displayName/slug 前段検証、サーバー400 整形)、`asProfileClient`、`app/settings`(RSC + Server Action、slug 変更で /p/新slug を revalidate)。12ケース緑。申し送り: 旧 slug キャッシュ無効化は D5 の revalidateTag で。
 - [x] **D5 公開ポートフォリオ SSR** `@web` — `/p/:slug` を SSR + `unstable_cache`/`revalidateTag`、最小 SEO/OGP（先頭画像）。FR-11〜16 / NFR-06。`lib/portfolio.ts`(getPortfolio/buildPortfolioMetadata/portfolioTag、client 注入)、`app/p/[slug]`(unstable_cache tag=portfolio:slug、notFound、generateMetadata OGP=先頭画像)。settings/artworks actions に revalidateTag 連携（旧 slug 含む、D4 申し送り解消）。12ケース緑。
-- [ ] **D6 作品詳細（公開）** `@web` — `/p/:slug/:artworkId`。画像は詳細用大サイズ。FR-14,15。
+- [x] **D6 作品詳細（公開）** `@web` — `/p/:slug/:artworkId`。画像は詳細用大サイズ。FR-14,15。`lib/portfolio.ts` に `findArtwork`/`buildArtworkMetadata` 追加（C4 ポートフォリオを再利用、新規 api ルート無し、portfolioTag 共有）。`app/p/[slug]/[artworkId]`(largeUrl 全表示、notFound、generateMetadata)。7ケース緑。
 - [ ] **Dz web 依存整理（ADR D7）** `@web` — スケルトン由来の未使用 `@artwork/database` を web の依存から削除（web は DB に触れない / D7）。`better-auth` は D2 のクライアント SDK で使うため残す。`bun install` で lock 同期、全ゲート緑を確認。
 
 ## Phase E — 統合・本番結線（🔒 あなたの認証情報が必要）

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildArtworkMetadata,
   buildPortfolioMetadata,
+  findArtwork,
   getPortfolio,
   portfolioTag,
   type PortfolioClient,
@@ -132,6 +134,47 @@ describe("buildPortfolioMetadata", () => {
   it("作品が空でも安全（OGP 画像なし）", () => {
     const meta = buildPortfolioMetadata({ ...SAMPLE, artworks: [] });
     expect(meta.title).toBe("夜のアーティスト");
+    expect(meta.openGraph?.images).toBeUndefined();
+  });
+});
+
+describe("findArtwork", () => {
+  it("一致する id の作品を返す", () => {
+    expect(findArtwork(SAMPLE, "a1")).toEqual(SAMPLE.artworks[0]);
+    expect(findArtwork(SAMPLE, "a2")).toEqual(SAMPLE.artworks[1]);
+  });
+
+  it("存在しない id は null", () => {
+    expect(findArtwork(SAMPLE, "nope")).toBeNull();
+  });
+
+  it("作品が空配列なら null", () => {
+    expect(findArtwork({ ...SAMPLE, artworks: [] }, "a1")).toBeNull();
+  });
+});
+
+describe("buildArtworkMetadata", () => {
+  it("title は作品タイトル（作者名付き）、description は作品説明", () => {
+    const meta = buildArtworkMetadata(SAMPLE.profile, SAMPLE.artworks[0]!);
+    expect(typeof meta.title).toBe("string");
+    expect(meta.title).toContain("月");
+    expect(meta.title).toContain("夜のアーティスト");
+    expect(meta.description).toBe("満月");
+  });
+
+  it("OGP 画像はその作品の先頭画像 largeUrl", () => {
+    const meta = buildArtworkMetadata(SAMPLE.profile, SAMPLE.artworks[0]!);
+    expect(meta.openGraph?.images).toEqual([{ url: "https://img/l1" }]);
+  });
+
+  it("description が null のときはデフォルトを使う", () => {
+    const meta = buildArtworkMetadata(SAMPLE.profile, SAMPLE.artworks[1]!);
+    expect(typeof meta.description).toBe("string");
+    expect(meta.description).not.toBe("");
+  });
+
+  it("画像が一つも無ければ openGraph.images を持たない", () => {
+    const meta = buildArtworkMetadata(SAMPLE.profile, SAMPLE.artworks[1]!);
     expect(meta.openGraph?.images).toBeUndefined();
   });
 });

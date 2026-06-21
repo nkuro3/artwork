@@ -143,6 +143,43 @@ export function buildPortfolioMetadata(portfolio: PortfolioDto): Metadata {
   };
 }
 
+/**
+ * 公開ポートフォリオの作品集合から id 一致の作品を返す（FR-14・純関数）。
+ * 見つからなければ null（未公開/存在しない → ページで 404 扱い）。
+ * C4 公開 DTO は公開作品のみを含むため、ここでの一致 = 公開作品である。
+ */
+export function findArtwork(
+  portfolio: PortfolioDto,
+  artworkId: string,
+): PortfolioArtwork | null {
+  return portfolio.artworks.find((a) => a.id === artworkId) ?? null;
+}
+
+/**
+ * 作品詳細の最小 SEO/OGP メタデータを組む（FR-14/16・純関数）。
+ * - title = 作品タイトル + 作者名（displayName）
+ * - description = 作品 description（無ければデフォルト）
+ * - openGraph.images = その作品の先頭画像 largeUrl（無ければ images キーを付けない）
+ */
+export function buildArtworkMetadata(
+  profile: PortfolioDto["profile"],
+  artwork: PortfolioArtwork,
+): Metadata {
+  const title = `${artwork.title} - ${profile.displayName}`;
+  const description = artwork.description ?? DEFAULT_DESCRIPTION;
+  const ogImageUrl = artwork.images[0]?.largeUrl;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      ...(ogImageUrl ? { images: [{ url: ogImageUrl }] } : {}),
+    },
+  };
+}
+
 function messageOf(e: unknown): string {
   if (e instanceof Error && e.message) return e.message;
   return "通信に失敗しました";
