@@ -58,6 +58,10 @@ export function createAuth(env: AppBindings) {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     basePath: "/api/auth",
+    // クロスオリジンのブラウザ（ローカルは web :3000 → api :8787）からの
+    // サインイン/サインアップを許可するため、web のオリジンを信頼する（CSRF/Origin 検証）。
+    // 本番は同一オリジン（ADR D4）なので baseURL で足りるが、設定されていれば追加する。
+    ...(env.WEB_ORIGIN ? { trustedOrigins: [env.WEB_ORIGIN] } : {}),
   });
 }
 
