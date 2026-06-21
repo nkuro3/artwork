@@ -17,6 +17,9 @@ dist/
 # Cloudflare
 .wrangler/
 .dev.vars
+.open-next/
+# OpenNext が生成する Cloudflare env 型定義
+cloudflare-env.d.ts
 
 # Claude Code (個人設定)
 .claude/settings.local.json

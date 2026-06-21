@@ -7,6 +7,7 @@ export default tseslint.config(
     ignores: [
       "**/dist/**",
       "**/.next/**",
+      "**/.open-next/**",
       "**/.turbo/**",
       "**/.wrangler/**",
       "**/node_modules/**",
