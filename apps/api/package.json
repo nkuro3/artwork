@@ -10,7 +10,8 @@
     "deploy": "wrangler deploy",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "sync-dev-storage": "bun --env-file=.dev.vars scripts/sync-dev-storage.ts"
   },
   "dependencies": {
     "@artwork/database": "workspace:*",
