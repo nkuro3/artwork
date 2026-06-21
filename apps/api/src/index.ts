@@ -14,8 +14,13 @@ import {
   createArtworksRoutes,
 } from "./routes/artworks";
 import { type ImageRoutesDeps, createImageRoutes } from "./routes/images";
+import {
+  type PortfolioRoutesDeps,
+  createPortfolioRoutes,
+} from "./routes/portfolio";
 import { createArtworkRepository } from "./repositories/artwork-repository";
 import { createArtworkImageRepository } from "./repositories/image-repository";
+import { createPortfolioRepository } from "./repositories/portfolio-repository";
 import { createStorageClient } from "./lib/storage";
 
 // api Worker のエントリ。
@@ -25,6 +30,7 @@ type AppEnv = {
   Variables: SessionVariables & {
     artworksDeps?: ArtworksRoutesDeps;
     imageDeps?: ImageRoutesDeps;
+    portfolioDeps?: PortfolioRoutesDeps;
   };
 };
 
@@ -38,6 +44,16 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 app.on(["POST", "GET"], "/api/auth/*", (c) =>
   createAuth(c.env).handler(c.req.raw),
 );
+
+// 公開ポートフォリオ（C4 / FR-11,12,13,15 / NFR-06）。未認証読み取り。
+// セッション middleware より「前」に置き、未認証アクセスで getSession を走らせない
+// （読み取り高速化方針 / NFR-06）。deps は env(DATABASE_URL) 依存のためリクエストごとに生成。
+app.use("/portfolio/*", async (c, next) => {
+  const db = createDb(c.env.DATABASE_URL);
+  c.set("portfolioDeps", { portfolioRepo: createPortfolioRepository(db) });
+  await next();
+});
+app.route("/portfolio", createPortfolioRoutes());
 
 // 以降のアプリルート（Phase C の CRUD 等）はセッションを解決して
 // user / session を context に載せる（無ければ null / ADR D6）。
