@@ -1,6 +1,7 @@
 import type { AppType } from "@artwork/api";
 import { hc } from "hono/client";
 import type { ArtworksClient } from "./artworks";
+import type { ProfileClient } from "./profile";
 import type { UploadClient } from "./upload";
 
 // D1 Hono RPC クライアント（NFR-11 / ADR D6 / D4）。
@@ -88,4 +89,9 @@ export function asArtworksClient(client: ApiClient): ArtworksClient {
 /** 画像アップロード orchestration（lib/upload）へ渡す構造的クライアント。 */
 export function asUploadClient(client: ApiClient): UploadClient {
   return client as unknown as UploadClient;
+}
+
+/** 設定コア（lib/profile）へ渡す構造的クライアント（D4 / C5b 未対応の RPC 型ギャップを閉じる）。 */
+export function asProfileClient(client: ApiClient): ProfileClient {
+  return client as unknown as ProfileClient;
 }
