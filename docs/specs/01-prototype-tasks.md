@@ -17,7 +17,7 @@
 - [x] **B1 認可ガード** `@api` — `assertOwner(userId, row)` と認可エラー。先にテスト（一致=通過 / 不一致=403）。FR-10 / SEC-01。`apps/api/src/lib/auth-guard.ts`: `isOwner`/`assertOwner`（HTTPException 403）、`OwnedResource` で汎用化。6ケース緑。
 - [x] **B2 slug** `@api` — 生成・正規化・バリデーション・予約語/重複チェックヘルパ。先にテスト。FR-03 / FR-11。`apps/api/src/lib/slug.ts`: `isValidSlug`/`normalizeSlug`/`generateProvisionalSlug`(FNV-1a 決定的)/`ensureUniqueSlug`(述語注入で DB 非依存)、予約語リスト。27ケース緑。
 - [x] **B3 sort_order** `@api` — 並び替え（挿入・移動）ロジック。先にテスト。FR-09 / FR-13。`apps/api/src/lib/sort-order.ts`: `moveItem`/`normalizeSortOrders`/`nextSortOrder`/`reorder`(変化分のみ差分)、全て不変。21ケース緑。
-- [ ] **B4 公開可視判定** `@api` — `is_public === true && status === 'published'` のフィルタ。先にテスト。FR-12。
+- [x] **B4 公開可視判定** `@api` — `is_public === true && status === 'published'` のフィルタ。先にテスト。FR-12。`apps/api/src/lib/visibility.ts`: `isArtworkPublic`/`filterPublicArtworks`(sortOrder昇順・不変)。ArtworkStatus はスキーマ enum 由来。10ケース緑。
 - [ ] **B5 画像 URL 生成** `@api` — `src/lib/image/`。`/cdn-cgi/image/width=.../<r2_key>` を用途別幅で生成。先にテスト。FR-15 / NFR-03。
 - [ ] **B6 R2 署名 URL** `@api` — `src/lib/storage.ts`。aws4fetch で短命・スコープ限定の presigned PUT を組立（鍵はモック）。先にテストで署名入力を検証。NFR-02 / SEC-06。
 - [ ] **B7 検索クエリ組立** `@api` — pg_trgm の類似度/部分一致 SQL フラグメント生成。先にテスト。FR-17 / NFR-05。
