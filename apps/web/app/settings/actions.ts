@@ -35,8 +35,8 @@ function readPatch(form: FormData): ProfilePatch {
   if (typeof slug === "string") patch.slug = slug;
   const bio = form.get("bio");
   if (typeof bio === "string") patch.bio = bio.trim() === "" ? null : bio;
-  patch.isPublic =
-    form.get("isPublic") === "on" || form.get("isPublic") === "true";
+  // 公開制御は作品単位の is_public に統一（§6.8）。プロフィール公開トグルは
+  // 設けないため isPublic は送らない（lib/profile / api のシグネチャは不変）。
   return patch;
 }
 

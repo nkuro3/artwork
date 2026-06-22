@@ -42,9 +42,11 @@ export default async function SettingsPage() {
           displayName: profile.displayName,
           slug: profile.slug,
           bio: profile.bio ?? "",
-          isPublic: profile.isPublic,
         }}
       />
+      <p>
+        公開ポートフォリオ: <a href={`/p/${profile.slug}`}>/p/{profile.slug}</a>
+      </p>
       <p>
         <a href="/artworks">作品一覧へ</a>
       </p>
