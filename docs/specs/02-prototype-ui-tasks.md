@@ -21,7 +21,8 @@
 - [x] **B4 作品作成/編集 整備** `@web` — フォームレイアウト・画像アップロード/並び替え UI・状態・編集時プリフィル。受入: §6.6, §6.7。（FR-06, FR-08, FR-09） ✅ `artwork-form.tsx`(480px・label・タイトル必須・二重送信防止)、`image-uploader.tsx`(選択時アップロード・進捗/エラー・↑↓並び替え・削除)、`lib/reorder.ts`(13テスト)、edit の not-found。注: 新規は遅延作成、**編集時の既存画像プリフィルは B4b（api 未対応）**。web111/build 緑。
 - [x] **B4b 自分の作品の画像一覧 API + 編集プリフィル** `@api`+`@web` — 認証付き `GET /api/artworks/:id/images`（所有者のみ、下書き含む。先頭からの画像配列 + thumbnailUrl）を追加。web の編集画面で既存画像を表示/削除/並び替え可能に（§6.7）。先にテスト（所有者検証・DTO 形）。受入: 編集で既存画像が出る。 ✅ api: GET /artworks/:id/images（404→403→sort昇順 DTO {id,thumbnailUrl,sortOrder}、r2Key 非公開）+5。web: `getArtworkImages`、edit で initialImages 渡し、既存+新規を統合（削除/並び替え）。api195/web114/build 緑。
 - [x] **B5 設定 整備** `@web` — 公開トグル削除（公開制御は作品単位 is_public に統一）・slug / bio・状態・公開ポートフォリオへのリンク。受入: §6.8。（FR-03, FR-11） ✅ 公開トグル除去（フォーム層のみ・api/lib 不変）、設定フォーム整備、`lib/profile-error.ts` で slug 重複/形式エラーを表示先振り分け（5テスト）、/p/{slug} リンク。web119/build 緑。
-- [ ] **B6 検索結果 `/search`（新規）** `@web` — 検索ボックス + 結果（作品グリッド / 作者リスト）+ 空クエリ/0件 状態。検索 API（C5）を利用。受入: §6.9。データ取得ロジックは先にテスト、画面は `/verify`。（FR-17）
+- [x] **B6 検索結果 `/search`（新規）** `@web` — 検索ボックス + 結果（作品グリッド / 作者リスト）+ 空クエリ/0件 状態。検索 API（C5）を利用。受入: §6.9。データ取得ロジックは先にテスト、画面は `/verify`。（FR-17） ✅ `lib/search.ts` の `searchAll`(空q最適化・正規化、8テスト)、`app/search/page.tsx`(GET フォーム・作品グリッド md2列・作者リンク・空/0件状態)、`.search-grid`。web127/build 緑。**作品→詳細リンクは B6b（DTO に作者slug 無し）**。
+- [ ] **B6b 検索作品に作者 slug + 詳細リンク** `@api`+`@web` — C5 `SearchArtworkDto` に作者 slug を追加（search-repository で artist_profile.slug を join）。web の検索作品結果を `/p/{artistSlug}/{id}` リンクに。先にテスト（DTO 形）。受入: 検索作品から詳細へ遷移できる。
 - [ ] **B7 公開ポートフォリオ `/p/[slug]` 整備** `@web` — グリッド（`md` 3列）・bio・レスポンシブ。受入: §6.10。（FR-11〜13, FR-16）
 - [ ] **B8 公開作品詳細 `/p/[slug]/[artworkId]` 整備** `@web` — 大画像・戻るリンク・レスポンシブ。受入: §6.11。（FR-14, FR-15）
 
