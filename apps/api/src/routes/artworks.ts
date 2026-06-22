@@ -16,6 +16,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
 import { assertOwner } from "../lib/auth-guard";
+import { thumbnailUrl } from "../lib/image/url";
 import {
   type SessionVariables,
   getCurrentUser,
@@ -45,6 +46,12 @@ export interface ArtworksRoutesDeps {
   resolveArtistProfileId: (userId: string) => Promise<string | null>;
   imageRepo: ArtworkImageRepository;
   storage: ArtworksRoutesStorage;
+  /**
+   * 画像配信のベース URL（env `IMAGE_BASE_URL`）。一覧の先頭画像サムネ URL 組み立て（B5）に使う。
+   * 認証ガード（requireAuth）と env 型の干渉を避けるため、c.env 直読みではなく
+   * 配線層から注入する（images ルートと同方針）。
+   */
+  imageBaseUrl: string;
 }
 
 /**
@@ -168,12 +175,19 @@ export function createArtworksRoutes(injectedDeps?: ArtworksRoutesDeps) {
     new Hono<AppEnv>()
       // 全エンドポイントで認証必須。
       .use("*", requireAuth)
-      // 一覧（自分のものだけ / FR-05）。
+      // 一覧（自分のものだけ / FR-05）。各作品に先頭画像のサムネ URL を載せる
+      // （02 仕様 §6.5 / B5）。画像なしは null。スキーマ型（r2Key）は web に漏らさない（ADR D5）。
       .get("/", async (c) => {
-        const { repo } = resolveDeps(injectedDeps, c);
+        const { repo, imageBaseUrl } = resolveDeps(injectedDeps, c);
         const user = getCurrentUser(c);
         const items = await repo.listByUser(user.id);
-        return c.json(items);
+        const body = items.map(({ thumbnailR2Key, ...rest }) => ({
+          ...rest,
+          thumbnailUrl: thumbnailR2Key
+            ? thumbnailUrl(imageBaseUrl, thumbnailR2Key)
+            : null,
+        }));
+        return c.json(body);
       })
       // 作成（userId はサーバー付与 / SEC-01。FR-05,08,09）。
       // json 入力は `validator` で型を宣言し、web の `hc<AppType>()` に body 型を伝える

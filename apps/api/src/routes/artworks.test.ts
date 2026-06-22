@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
+import { thumbnailUrl } from "../lib/image/url";
 import type { SessionUser, SessionVariables } from "../lib/session";
 import type {
   Artwork,
@@ -98,6 +99,9 @@ function seedImage(over: Partial<ArtworkImage> = {}): ArtworkImage {
   };
 }
 
+/** テストで使う画像配信ベース URL（B5 の URL 組み立てに渡す）。 */
+const IMAGE_BASE_URL = "https://img.example.com";
+
 const OWNER: SessionUser = { id: "user-1", email: "owner@example.com" };
 const OTHER: SessionUser = { id: "user-2", email: "other@example.com" };
 
@@ -131,6 +135,7 @@ function buildApp(
       resolveArtistProfileId: async (userId) => PROFILE_OF[userId] ?? null,
       imageRepo: opts.imageRepo ?? createMockImageRepo(),
       storage: opts.storage ?? { deleteObject: async () => {} },
+      imageBaseUrl: IMAGE_BASE_URL,
     }),
   );
   return app;
@@ -147,6 +152,7 @@ function seedArtwork(over: Partial<Artwork> = {}): Artwork {
     status: "draft",
     isPublic: false,
     sortOrder: 0,
+    thumbnailR2Key: null,
     createdAt: now,
     updatedAt: now,
     ...over,
@@ -255,8 +261,38 @@ describe("GET /artworks", () => {
     const app = buildApp(repo, OWNER);
     const res = await app.request("/artworks");
     expect(res.status).toBe(200);
-    const body = (await res.json()) as Artwork[];
+    const body = (await res.json()) as { id: string }[];
     expect(body.map((a) => a.id).sort()).toEqual(["art-1", "art-3"]);
+  });
+
+  it("先頭画像があれば thumbnailUrl が URL になる（B5）", async () => {
+    const repo = createMockRepo([
+      seedArtwork({
+        id: "art-1",
+        userId: "user-1",
+        thumbnailR2Key: "uploads/user-1/art-1/first.jpg",
+      }),
+    ]);
+    const app = buildApp(repo, OWNER);
+    const res = await app.request("/artworks");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string; thumbnailUrl: string | null }[];
+    const item = body.find((a) => a.id === "art-1");
+    expect(item?.thumbnailUrl).toBe(
+      thumbnailUrl(IMAGE_BASE_URL, "uploads/user-1/art-1/first.jpg"),
+    );
+  });
+
+  it("先頭画像が無ければ thumbnailUrl は null", async () => {
+    const repo = createMockRepo([
+      seedArtwork({ id: "art-1", userId: "user-1", thumbnailR2Key: null }),
+    ]);
+    const app = buildApp(repo, OWNER);
+    const res = await app.request("/artworks");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string; thumbnailUrl: string | null }[];
+    const item = body.find((a) => a.id === "art-1");
+    expect(item?.thumbnailUrl).toBeNull();
   });
 });
 

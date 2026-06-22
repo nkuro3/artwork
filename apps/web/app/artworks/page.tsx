@@ -13,9 +13,14 @@ import { DeleteArtworkButton } from "./delete-button";
 
 export const dynamic = "force-dynamic";
 
-// 一覧データ（lib/artworks の Artwork）には先頭画像のサムネ URL が無いため、
-// サムネは表示しない（api 側の対応＝@web スコープ外）。タイトル・状態・公開可否・
-// 編集/削除のみを各カードに出す（§6.5）。
+// B3b: 一覧データ（lib/artworks の Artwork）に api が付与する先頭画像サムネ
+// （thumbnailUrl）を各カードに出す（§6.5）。幅100%・アスペクト維持（§4/§5.4）、
+// alt にタイトル（§5.5）。thumbnailUrl が null/無しなら画像は出さない。装飾なし。
+
+const thumbStyle: CSSProperties = {
+  width: "100%",
+  height: "auto",
+};
 
 const cardStyle: CSSProperties = {
   display: "flex",
@@ -72,6 +77,10 @@ export default async function ArtworksPage() {
         <ul className="artwork-grid">
           {result.data.map((art) => (
             <li key={art.id} style={cardStyle}>
+              {art.thumbnailUrl ? (
+                // ワイヤー品質。Cloudflare Images の変換 URL を素の img で出す（§5.4）。
+                <img src={art.thumbnailUrl} alt={art.title} style={thumbStyle} />
+              ) : null}
               <a href={`/artworks/edit/${art.id}`}>{art.title}</a>
               <span style={metaStyle}>
                 {art.status === "published" ? "公開" : "下書き"}

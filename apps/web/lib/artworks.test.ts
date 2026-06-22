@@ -28,6 +28,7 @@ const SAMPLE = {
   status: "draft",
   isPublic: false,
   sortOrder: 0,
+  thumbnailUrl: "https://img.example/artworks/a1.jpg/thumb",
   createdAt: "2026-06-01T00:00:00.000Z",
   updatedAt: "2026-06-01T00:00:00.000Z",
 };
@@ -100,7 +101,19 @@ describe("listArtworks", () => {
     if (result.ok) {
       expect(result.data).toHaveLength(1);
       expect(result.data[0]?.id).toBe("a1");
+      expect(result.data[0]?.thumbnailUrl).toBe(
+        "https://img.example/artworks/a1.jpg/thumb",
+      );
     }
+  });
+
+  it("画像なしの作品は thumbnailUrl=null を保持する", async () => {
+    const { client } = mockClient({
+      list: vi.fn().mockResolvedValue(res([{ ...SAMPLE, thumbnailUrl: null }])),
+    });
+    const result = await listArtworks(client);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data[0]?.thumbnailUrl).toBeNull();
   });
 
   it("非 ok レスポンスは失敗に正規化する", async () => {

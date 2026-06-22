@@ -15,6 +15,12 @@ export interface Artwork {
   status: "draft" | "published";
   isPublic: boolean;
   sortOrder: number;
+  /**
+   * 先頭画像のサムネ URL（一覧表示用 / B5・02 仕様 §6.5）。画像なしは null。
+   * 一覧（`listArtworks`）でのみ api が付与する。単体取得（`getArtwork` 等）の
+   * レスポンスには含まれないため任意（API の DTO 差を web 型に反映 / ADR D5）。
+   */
+  thumbnailUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }

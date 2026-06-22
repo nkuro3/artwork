@@ -7,9 +7,9 @@
  * ユニットテストはしない（型のみ担保 / 実 DB 統合は E2）。
  */
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { createDb } from "@artwork/database";
-import { artwork } from "@artwork/database/schema";
+import { artwork, artworkImage } from "@artwork/database/schema";
 import type { ArtworkStatus } from "../lib/visibility";
 
 /** drizzle の DB ハンドル型（`createDb()` の戻り値）。 */
@@ -28,6 +28,12 @@ export interface Artwork {
   status: ArtworkStatus;
   isPublic: boolean;
   sortOrder: number;
+  /**
+   * 先頭画像（sort_order 昇順の先頭 1 枚）の R2 キー。一覧（listByUser）でのみ設定し、
+   * ルート層で B5 `thumbnailUrl` の素にする。画像なし=null。CRUD 単体（create/findById/
+   * update）では設定されない（undefined）ため optional。スキーマ型は web に漏らさない（ADR D5）。
+   */
+  thumbnailR2Key?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -105,11 +111,46 @@ export function createArtworkRepository(db: Database): ArtworkRepository {
     },
 
     async listByUser(userId) {
+      // 先頭画像（sort_order 昇順の先頭 1 件）の r2_key を相関サブクエリで引く
+      // （C4 portfolio / C5 search と同方針）。画像なしは null。
+      const firstImageKey = sql<string | null>`(
+        select ${artworkImage.r2Key}
+        from ${artworkImage}
+        where ${artworkImage.artworkId} = ${artwork.id}
+        order by ${artworkImage.sortOrder} asc
+        limit 1
+      )`;
+
       const rows = await db
-        .select()
+        .select({
+          id: artwork.id,
+          userId: artwork.userId,
+          artistProfileId: artwork.artistProfileId,
+          title: artwork.title,
+          description: artwork.description,
+          status: artwork.status,
+          isPublic: artwork.isPublic,
+          sortOrder: artwork.sortOrder,
+          createdAt: artwork.createdAt,
+          updatedAt: artwork.updatedAt,
+          thumbnailR2Key: firstImageKey,
+        })
         .from(artwork)
         .where(eq(artwork.userId, userId));
-      return rows.map(toArtwork);
+
+      return rows.map((row) => ({
+        id: row.id,
+        userId: row.userId,
+        artistProfileId: row.artistProfileId,
+        title: row.title,
+        description: row.description,
+        status: row.status,
+        isPublic: row.isPublic,
+        sortOrder: row.sortOrder,
+        thumbnailR2Key: row.thumbnailR2Key,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }));
     },
 
     async update(id, patch) {

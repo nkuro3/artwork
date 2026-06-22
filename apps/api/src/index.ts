@@ -89,6 +89,8 @@ const artworksDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
     // 削除時の R2 クリーンアップ（FR-07）。C3 と同じ repo/storage を生成する。
     imageRepo: createArtworkImageRepository(db),
     storage,
+    // 一覧の先頭画像サムネ URL 組み立て（B5 / 02 §6.5）。
+    imageBaseUrl: c.env.IMAGE_BASE_URL,
   });
   await next();
 };
