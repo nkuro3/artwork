@@ -1,12 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import {
+  AuthField,
+  AuthFormBody,
+  AuthLinkRow,
+  AuthShell,
+} from "../../components/auth-form";
 import { authFormsClient } from "../../lib/auth-client";
 import { submitLogin, type FormErrors } from "../../lib/auth-forms";
 
-// D2 ログイン画面（FR-01）。薄いクライアントコンポーネント。レンダリングテストは行わず
-// /verify で確認する（純ロジックは lib/auth-forms.test.ts でカバー済み）。
+// B2 ログイン画面（仕様 02 §6.2 / FR-01）。薄いクライアントコンポーネント。
+// レンダリングテストは行わず /verify で確認する（純ロジックは lib/auth-forms.test.ts でカバー済み）。
+// UI のみ整備（フォーム用コンテナ 480px・縦積み・状態/文言・a11y）。ロジックは変更しない。
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,29 +39,31 @@ export default function LoginPage() {
   }
 
   return (
-    <>
+    <AuthShell>
       <h1>ログイン</h1>
-      <form onSubmit={onSubmit} noValidate>
+      <AuthFormBody onSubmit={onSubmit}>
         {errors.form ? <p role="alert">{errors.form}</p> : null}
-        <label>
-          メールアドレス
-          <input type="email" name="email" autoComplete="email" />
-        </label>
-        {errors.email ? <p role="alert">{errors.email}</p> : null}
-        <label>
-          パスワード
-          <input
-            type="password"
-            name="password"
-            autoComplete="current-password"
-          />
-        </label>
-        {errors.password ? <p role="alert">{errors.password}</p> : null}
+        <AuthField
+          label="メールアドレス"
+          name="email"
+          type="email"
+          autoComplete="email"
+          error={errors.email}
+        />
+        <AuthField
+          label="パスワード"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          error={errors.password}
+        />
         <button type="submit" disabled={pending}>
           ログイン
         </button>
-      </form>
-      <a href="/signup">アカウントを作成</a>
-    </>
+      </AuthFormBody>
+      <AuthLinkRow>
+        <Link href="/signup">サインアップへ</Link>
+      </AuthLinkRow>
+    </AuthShell>
   );
 }

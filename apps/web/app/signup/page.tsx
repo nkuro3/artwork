@@ -1,12 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import {
+  AuthField,
+  AuthFormBody,
+  AuthLinkRow,
+  AuthShell,
+} from "../../components/auth-form";
 import { authFormsClient } from "../../lib/auth-client";
 import { submitSignup, type FormErrors } from "../../lib/auth-forms";
 
-// D2 サインアップ画面（FR-01）。薄いクライアントコンポーネント。
-// レンダリングテストは行わず /verify で確認する。
+// B2 サインアップ画面（仕様 02 §6.3 / FR-01）。薄いクライアントコンポーネント。
+// レンダリングテストは行わず /verify で確認する。UI のみ整備しロジックは変更しない。
 
 export default function SignupPage() {
   const router = useRouter();
@@ -33,34 +40,39 @@ export default function SignupPage() {
   }
 
   return (
-    <>
-      <h1>アカウント作成</h1>
-      <form onSubmit={onSubmit} noValidate>
+    <AuthShell>
+      <h1>登録</h1>
+      <AuthFormBody onSubmit={onSubmit}>
         {errors.form ? <p role="alert">{errors.form}</p> : null}
-        <label>
-          表示名（任意）
-          <input type="text" name="displayName" autoComplete="name" />
-        </label>
-        {errors.displayName ? <p role="alert">{errors.displayName}</p> : null}
-        <label>
-          メールアドレス
-          <input type="email" name="email" autoComplete="email" />
-        </label>
-        {errors.email ? <p role="alert">{errors.email}</p> : null}
-        <label>
-          パスワード（8 文字以上）
-          <input
-            type="password"
-            name="password"
-            autoComplete="new-password"
-          />
-        </label>
-        {errors.password ? <p role="alert">{errors.password}</p> : null}
+        <AuthField
+          label="表示名"
+          name="displayName"
+          type="text"
+          autoComplete="name"
+          error={errors.displayName}
+        />
+        <AuthField
+          label="メールアドレス"
+          name="email"
+          type="email"
+          autoComplete="email"
+          error={errors.email}
+        />
+        <AuthField
+          label="パスワード"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          hint="8 文字以上"
+          error={errors.password}
+        />
         <button type="submit" disabled={pending}>
           登録
         </button>
-      </form>
-      <a href="/login">ログインへ</a>
-    </>
+      </AuthFormBody>
+      <AuthLinkRow>
+        <Link href="/login">ログインへ</Link>
+      </AuthLinkRow>
+    </AuthShell>
   );
 }
