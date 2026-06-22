@@ -43,7 +43,8 @@
 | 項目 | 値 |
 |---|---|
 | フォント | `"LINE Seed JP", system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif`（主 = LINE Seed JP、LINE 提供の Web フォント。以降はフォールバック。読み込み方法は実装時） |
-| 行間 | 本文 1.6 / 見出し 1.3 |
+| 行送り（leading / line-height） | `1.7`（全体共通） |
+| 字間（tracking / letter-spacing） | `0.02em`（全体共通） |
 | ウェイト | 本文 400 / 強調・見出し 600 |
 
 | サイズトークン | px | 用途 |
