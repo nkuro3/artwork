@@ -10,6 +10,7 @@ import {
   portfolioTag,
   type PortfolioDto,
 } from "../../../lib/portfolio";
+import { ProfileSlugLink } from "../../../components/profile-slug-link";
 
 // D5 公開ポートフォリオ SSR（FR-11〜16 / NFR-06）。公開エリアの RSC。
 // C4 `GET /portfolio/:slug` は未認証なので Cookie 転送なしの `createApiClient()` で呼ぶ。
@@ -34,6 +35,12 @@ const cardStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "var(--space-2)",
+};
+
+const handleStyle: CSSProperties = {
+  margin: "var(--space-1) 0 0",
+  color: "var(--color-text-muted)",
+  fontSize: "var(--text-sm)",
 };
 
 const bioStyle: CSSProperties = {
@@ -83,6 +90,9 @@ export default async function PortfolioPage({
     <>
       <header>
         <h1>{profile.displayName}</h1>
+        <p style={handleStyle}>
+          <ProfileSlugLink slug={slug} />
+        </p>
         {profile.bio ? <p style={bioStyle}>{profile.bio}</p> : null}
       </header>
 

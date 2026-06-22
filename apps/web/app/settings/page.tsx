@@ -4,6 +4,7 @@ import { createApiClient } from "../../lib/api";
 import { getProfile } from "../../lib/profile";
 import { getSession } from "../../lib/session";
 import { SettingsForm } from "./settings-form";
+import { ProfileSlugLink } from "../../components/profile-slug-link";
 
 // D4 設定（FR-03 プロフィール / slug / 公開設定）。要ログイン領域の RSC。受信 Cookie を
 // api に転送して現在のプロフィールを取得し（無ければ api 側で lazy init / FR-03）、
@@ -48,7 +49,7 @@ export default async function SettingsPage() {
         <a href="/portfolio/edit">ポートフォリオ編集</a>
       </p>
       <p>
-        公開ポートフォリオ: <a href={`/p/${profile.slug}`}>/p/{profile.slug}</a>
+        あなたのページ: <ProfileSlugLink slug={profile.slug} />
       </p>
       <p>
         <a href="/artworks">作品一覧へ</a>
