@@ -28,7 +28,7 @@
 
 ## Phase C — 仕上げ
 
-- [ ] **C1 レスポンシブ/a11y 横断確認** `@web` — `md` 切替・フォーカスリング・画像 alt・タッチターゲット44px・見出し階層を全画面で確認（`/verify` でブラウザ実機）。受入: §5.4, §5.5 を全画面で満たす。
+- [x] **C1 レスポンシブ/a11y 横断確認** `@web` — `md` 切替・フォーカスリング・画像 alt・タッチターゲット44px・見出し階層を全画面で確認（`/verify` でブラウザ実機）。受入: §5.4, §5.5 を全画面で満たす。 ✅ ローカル(web:3100→api:8787 Bun サーブ/Neon dev)起動しブラウザ実機確認。**ライブ検証**: home/login/signup/search(空・0件)/404 を <md(700px) と ≥md(1100px) で確認。トークン適用を実測で確定（font=LINE Seed JP, body line-height 30.6px=18×1.7, letter-spacing 0.36px=0.02em, 入力 radius 4px・border #d1d5db, `:focus-visible{outline:2px solid var(--color-focus);offset:2px}` 規則 + ログインボタンにリング可視）。h1 階層・全フォーム label・search landmark・404 文言・空/0件状態を確認。md 切替は matchMedia 実測（700=false/1100=true）。**CSS 確定検証**: グリッド列数を globals.css で §4 表と一致確認（artwork 1→2→3 / portfolio 2→3 / search 1→2、いずれも min-width:768px）。データ依存画面（作品一覧/管理・ポートフォリオ・詳細大画像）は dev DB に公開データが無く、認証/シードは C1 スコープ外のためライブ表示せず、グリッド CSS + build + 既存コードで担保。指摘事項なし。
 
 ## 完了の定義（各スライス共通）
 
