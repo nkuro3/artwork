@@ -8,19 +8,21 @@ export interface NavLink {
 }
 
 /**
- * ヘッダー右側のナビリンクを返す（§5.1）。
- * - 未ログイン: `ログイン`(/login) / `登録`(/signup)
- * - ログイン済み: `作品管理`(/artworks) / `設定`(/settings) / `ログアウト`(/logout)
+ * ヘッダー右側のナビリンクを返す（§5.1）。検索は公開機能のため両状態で出す。
+ * - 未ログイン: `検索`(/search) / `ログイン`(/login) / `登録`(/signup)
+ * - ログイン済み: `作品管理`(/artworks) / `検索`(/search) / `設定`(/settings) / `ログアウト`(/logout)
  */
 export function headerNavLinks(isAuthenticated: boolean): NavLink[] {
   if (isAuthenticated) {
     return [
       { label: "作品管理", href: "/artworks" },
+      { label: "検索", href: "/search" },
       { label: "設定", href: "/settings" },
       { label: "ログアウト", href: "/logout" },
     ];
   }
   return [
+    { label: "検索", href: "/search" },
     { label: "ログイン", href: "/login" },
     { label: "登録", href: "/signup" },
   ];

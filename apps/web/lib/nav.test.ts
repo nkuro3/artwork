@@ -5,16 +5,18 @@ import { headerNavLinks } from "./nav";
 // JSX レンダリングはせず、リンクの集合（label/href）だけを検証する。
 
 describe("headerNavLinks", () => {
-  it("未ログインは ログイン / 登録 を返す", () => {
+  it("未ログインは 検索 / ログイン / 登録 を返す", () => {
     expect(headerNavLinks(false)).toEqual([
+      { label: "検索", href: "/search" },
       { label: "ログイン", href: "/login" },
       { label: "登録", href: "/signup" },
     ]);
   });
 
-  it("ログイン済みは 作品管理 / 設定 / ログアウト を返す", () => {
+  it("ログイン済みは 作品管理 / 検索 / 設定 / ログアウト を返す", () => {
     expect(headerNavLinks(true)).toEqual([
       { label: "作品管理", href: "/artworks" },
+      { label: "検索", href: "/search" },
       { label: "設定", href: "/settings" },
       { label: "ログアウト", href: "/logout" },
     ]);
