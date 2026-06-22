@@ -60,8 +60,9 @@ function readCreateInput(form: FormData): CreateArtworkInput {
     input.description = description.trim() === "" ? null : description;
   }
   const status = form.get("status");
-  if (status === "draft" || status === "published") input.status = status;
-  input.isPublic = form.get("isPublic") === "on" || form.get("isPublic") === "true";
+  if (status === "draft" || status === "published" || status === "archived") {
+    input.status = status;
+  }
   return input;
 }
 
@@ -80,7 +81,7 @@ export async function createArtworkAction(
 }
 
 /**
- * 新規下書きを 1 件作成する（§6.6）。title 空・isDraft=true。
+ * 新規下書きを 1 件作成する（§6.6 / ADR D12）。title 空・status=draft。
  * `/artworks/new` の RSC から呼び、作成した id へ遷移する。
  */
 export async function createDraftArtworkAction(): Promise<
@@ -97,8 +98,8 @@ export async function createDraftArtworkAction(): Promise<
 }
 
 /**
- * 作品を部分更新する（§6.7 自動保存・登録/保存）。
- * フォームは autosavePatch で組んだパッチ（isDraft 含む）を直接渡す。
+ * 作品を部分更新する（§6.7 自動保存）。
+ * フォームは autosavePatch で組んだパッチ（title/description/status）を直接渡す。
  */
 export async function updateArtworkAction(
   id: string,

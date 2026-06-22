@@ -225,7 +225,14 @@ export function ImageUploader({
   }
 
   function onMove(index: number, direction: "up" | "down") {
-    setItems((prev) => moveItem(prev, index, direction));
+    setItems((prev) => {
+      const next = moveItem(prev, index, direction);
+      // 自動保存（§6.7：保存ボタンを持たないため、並び替え直後に順序を確定する）。
+      // setItems のクロージャ内で算出した next を ref に反映してから commit する。
+      itemsRef.current = next;
+      void commitOrder();
+      return next;
+    });
   }
 
   async function onDelete(localId: string) {

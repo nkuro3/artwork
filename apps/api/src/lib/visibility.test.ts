@@ -1,57 +1,41 @@
 import { describe, expect, it } from "vitest";
 
+import type { ArtworkStatus } from "./visibility";
 import { filterPublicArtworks, isArtworkPublic } from "./visibility";
 
 /** テスト用の最小作品ファクトリ。 */
 function artwork(overrides: {
-  isPublic: boolean;
-  isDraft: boolean;
+  status: ArtworkStatus;
   sortOrder?: number;
   id?: string;
 }) {
   return {
     id: overrides.id ?? "a",
     sortOrder: overrides.sortOrder ?? 0,
-    isPublic: overrides.isPublic,
-    isDraft: overrides.isDraft,
+    status: overrides.status,
   };
 }
 
 describe("isArtworkPublic", () => {
-  it("isPublic かつ非 draft（isDraft=false）のみ true", () => {
-    expect(isArtworkPublic({ isPublic: true, isDraft: false })).toBe(true);
+  it("status='published' のみ true", () => {
+    expect(isArtworkPublic({ status: "published" })).toBe(true);
   });
 
-  it("draft（isDraft=true）かつ public は false", () => {
-    expect(isArtworkPublic({ isPublic: true, isDraft: true })).toBe(false);
+  it("status='draft' は false", () => {
+    expect(isArtworkPublic({ status: "draft" })).toBe(false);
   });
 
-  it("非 draft かつ非 public は false", () => {
-    expect(isArtworkPublic({ isPublic: false, isDraft: false })).toBe(false);
-  });
-
-  it("draft かつ非 public は false", () => {
-    expect(isArtworkPublic({ isPublic: false, isDraft: true })).toBe(false);
+  it("status='archived' は false", () => {
+    expect(isArtworkPublic({ status: "archived" })).toBe(false);
   });
 });
 
 describe("filterPublicArtworks", () => {
-  it("非公開・下書きを除外し、公開作品のみ残す（FR-12）", () => {
+  it("draft / archived を除外し、published のみ残す（FR-12）", () => {
     const input = [
-      artwork({ id: "pub", isPublic: true, isDraft: false, sortOrder: 0 }),
-      artwork({ id: "draft", isPublic: true, isDraft: true, sortOrder: 1 }),
-      artwork({
-        id: "private",
-        isPublic: false,
-        isDraft: false,
-        sortOrder: 2,
-      }),
-      artwork({
-        id: "both-off",
-        isPublic: false,
-        isDraft: true,
-        sortOrder: 3,
-      }),
+      artwork({ id: "pub", status: "published", sortOrder: 0 }),
+      artwork({ id: "draft", status: "draft", sortOrder: 1 }),
+      artwork({ id: "archived", status: "archived", sortOrder: 2 }),
     ];
 
     const result = filterPublicArtworks(input);
@@ -61,9 +45,9 @@ describe("filterPublicArtworks", () => {
 
   it("sortOrder 昇順に並べ替える（FR-13）", () => {
     const input = [
-      artwork({ id: "c", isPublic: true, isDraft: false, sortOrder: 2 }),
-      artwork({ id: "a", isPublic: true, isDraft: false, sortOrder: 0 }),
-      artwork({ id: "b", isPublic: true, isDraft: false, sortOrder: 1 }),
+      artwork({ id: "c", status: "published", sortOrder: 2 }),
+      artwork({ id: "a", status: "published", sortOrder: 0 }),
+      artwork({ id: "b", status: "published", sortOrder: 1 }),
     ];
 
     const result = filterPublicArtworks(input);
@@ -73,9 +57,9 @@ describe("filterPublicArtworks", () => {
 
   it("同一 sortOrder は元の相対順を保つ（安定ソート）", () => {
     const input = [
-      artwork({ id: "x", isPublic: true, isDraft: false, sortOrder: 5 }),
-      artwork({ id: "y", isPublic: true, isDraft: false, sortOrder: 5 }),
-      artwork({ id: "z", isPublic: true, isDraft: false, sortOrder: 5 }),
+      artwork({ id: "x", status: "published", sortOrder: 5 }),
+      artwork({ id: "y", status: "published", sortOrder: 5 }),
+      artwork({ id: "z", status: "published", sortOrder: 5 }),
     ];
 
     const result = filterPublicArtworks(input);
@@ -85,8 +69,8 @@ describe("filterPublicArtworks", () => {
 
   it("元配列を破壊しない（不変）", () => {
     const input = [
-      artwork({ id: "c", isPublic: true, isDraft: false, sortOrder: 2 }),
-      artwork({ id: "a", isPublic: true, isDraft: false, sortOrder: 0 }),
+      artwork({ id: "c", status: "published", sortOrder: 2 }),
+      artwork({ id: "a", status: "published", sortOrder: 0 }),
     ] as const;
     const snapshot = input.map((a) => a.id);
 

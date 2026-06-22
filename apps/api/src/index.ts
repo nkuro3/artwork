@@ -16,6 +16,10 @@ import {
 } from "./routes/artworks";
 import { type ImageRoutesDeps, createImageRoutes } from "./routes/images";
 import {
+  type PortfolioMineRoutesDeps,
+  createPortfolioMineRoutes,
+} from "./routes/portfolio-mine";
+import {
   type PortfolioRoutesDeps,
   createPortfolioRoutes,
 } from "./routes/portfolio";
@@ -34,6 +38,7 @@ import { createArtistProfileRepository } from "./repositories/artist-profile-rep
 import { createArtworkRepository } from "./repositories/artwork-repository";
 import { createArtworkImageRepository } from "./repositories/image-repository";
 import { createPortfolioRepository } from "./repositories/portfolio-repository";
+import { createPortfolioItemRepository } from "./repositories/portfolio-item-repository";
 import { createSearchRepository } from "./repositories/search-repository";
 import { createStorageClient } from "./lib/storage";
 
@@ -46,6 +51,7 @@ type AppEnv = {
     artworksDeps?: ArtworksRoutesDeps;
     imageDeps?: ImageRoutesDeps;
     portfolioDeps?: PortfolioRoutesDeps;
+    portfolioMineDeps?: PortfolioMineRoutesDeps;
     searchDeps?: SearchRoutesDeps;
     profileDeps?: ProfileRoutesDeps;
   };
@@ -62,6 +68,20 @@ const portfolioDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
 const searchDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   const db = createDb(c.env.DATABASE_URL);
   c.set("searchDeps", { searchRepo: createSearchRepository(db) });
+  await next();
+};
+
+// ポートフォリオ編集（§6.12 / FR-12,13 / SEC-01）の deps。認証必須ルートのため
+// セッション解決後に置く。所有者検証・published 検証はルート層で担保（ADR D8）。
+const portfolioMineDepsMiddleware: MiddlewareHandler<AppEnv> = async (
+  c,
+  next,
+) => {
+  const db = createDb(c.env.DATABASE_URL);
+  c.set("portfolioMineDeps", {
+    portfolioItemRepo: createPortfolioItemRepository(db),
+    imageBaseUrl: c.env.IMAGE_BASE_URL,
+  });
   await next();
 };
 
@@ -155,6 +175,14 @@ const app = new Hono<AppEnv>()
   .on(["POST", "GET"], "/api/auth/*", (c) =>
     createAuth(c.env).handler(c.req.raw),
   )
+  // ポートフォリオ編集 API（§6.12 / FR-12,13 / 要ログイン / SEC-01）。
+  // 静的 `/mine` を公開 `:slug` より「先に」登録して衝突を避ける（ADR D12）。
+  // 認証必須のためここだけセッションを解決し、編集 deps を載せる。
+  .use("/api/portfolio/mine", (c, next) =>
+    createSessionMiddleware<AppEnv>(createAuth(c.env))(c, next),
+  )
+  .use("/api/portfolio/mine", portfolioMineDepsMiddleware)
+  .route("/api/portfolio", createPortfolioMineRoutes())
   // 公開ポートフォリオ（C4 / FR-11,12,13,15 / NFR-06）。未認証読み取り。
   .use("/api/portfolio/*", portfolioDepsMiddleware)
   .route("/api/portfolio", createPortfolioRoutes())

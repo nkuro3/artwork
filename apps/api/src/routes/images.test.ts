@@ -82,8 +82,6 @@ function seedArtwork(over: Partial<Artwork> = {}): Artwork {
     title: "Existing",
     description: null,
     status: "draft",
-    isPublic: false,
-    isDraft: true,
     sortOrder: 0,
     createdAt: now,
     updatedAt: now,
@@ -213,7 +211,7 @@ describe("GET /artworks/:id/images", () => {
       imageRepo,
       // 下書き/非公開でも所有者なら取得可。
       artworkRepo: createMockArtworkRepo([
-        seedArtwork({ status: "draft", isPublic: false }),
+        seedArtwork({ status: "draft" }),
       ]),
       storage: createMockStorage(),
     });

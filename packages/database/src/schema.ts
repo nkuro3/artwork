@@ -79,7 +79,11 @@ export const verification = pgTable("verification", {
 // ADR D8 (authorization enforced in the API app layer).
 // =============================================================================
 
-export const artworkStatus = pgEnum("artwork_status", ["draft", "published"]);
+export const artworkStatus = pgEnum("artwork_status", [
+  "draft",
+  "published",
+  "archived",
+]);
 
 export const artistProfile = pgTable("artist_profile", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -111,11 +115,9 @@ export const artwork = pgTable(
       .references(() => artistProfile.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
+    // ADR D12: single lifecycle source. draft / published / archived.
+    // 公開（検索・公開ページに出る）= status='published'。`isDraft`/`isPublic` は持たない。
     status: artworkStatus("status").notNull().default("draft"),
-    // Draft lifecycle (spec 02 「下書きモデル」). New artworks start as drafts;
-    // `登録` flips this to false. Independent of `status` and `isPublic`.
-    isDraft: boolean("is_draft").notNull().default(true),
-    isPublic: boolean("is_public").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -152,5 +154,32 @@ export const artworkImage = pgTable(
   (t) => [
     index("artwork_image_artwork_id_idx").on(t.artworkId),
     index("artwork_image_user_id_idx").on(t.userId),
+  ],
+);
+
+// ADR D12: portfolio membership lives here, not on the artwork. One portfolio
+// per user (`user_id` is the owner). The public portfolio (`/p/[slug]`) shows
+// `status='published'` artworks selected here, ordered by `position`.
+export const portfolioItem = pgTable(
+  "portfolio_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Portfolio owner (one portfolio per user).
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // An artwork appears at most once in its own portfolio.
+    artworkId: uuid("artwork_id")
+      .notNull()
+      .unique()
+      .references(() => artwork.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("portfolio_item_user_id_idx").on(t.userId),
+    index("portfolio_item_artwork_id_idx").on(t.artworkId),
   ],
 );

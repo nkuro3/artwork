@@ -25,13 +25,12 @@ export interface Artwork {
   artistProfileId: string;
   title: string;
   description: string | null;
-  status: ArtworkStatus;
-  isPublic: boolean;
   /**
-   * 下書きフラグ（02 仕様「下書きモデル」）。新規作成時は true。
-   * 公開条件は `isPublic && !isDraft`（status は関与しない）。
+   * ライフサイクル状態（ADR D12 / 02 仕様「作品の状態モデル」）。
+   * `draft`（既定・下書き・非公開）/ `published`（公開）/ `archived`（取り下げ・非公開）。
+   * 公開条件は `status==='published'`。
    */
-  isDraft: boolean;
+  status: ArtworkStatus;
   sortOrder: number;
   /**
    * 先頭画像（sort_order 昇順の先頭 1 枚）の R2 キー。一覧（listByUser）でのみ設定し、
@@ -45,18 +44,15 @@ export interface Artwork {
 
 /**
  * 作品作成の入力。`userId` はサーバー側で付与される（クライアント値は信用しない / SEC-01）。
- * 省略可能な項目はリポジトリ側で既定値（status='draft' / isPublic=false / isDraft=true /
- * sortOrder=0）を補う。
+ * 省略可能な項目はリポジトリ側で既定値（status='draft' / sortOrder=0）を補う。
  */
 export interface CreateArtworkInput {
   userId: string;
   artistProfileId: string;
   title: string;
   description?: string | null;
+  /** 未指定なら下書き（'draft'）として作成する。 */
   status?: ArtworkStatus;
-  isPublic?: boolean;
-  /** 未指定なら下書き（true）として作成する。 */
-  isDraft?: boolean;
   sortOrder?: number;
 }
 
@@ -68,8 +64,6 @@ export interface UpdateArtworkPatch {
   title?: string;
   description?: string | null;
   status?: ArtworkStatus;
-  isPublic?: boolean;
-  isDraft?: boolean;
   sortOrder?: number;
 }
 
@@ -101,8 +95,6 @@ export function createArtworkRepository(db: Database): ArtworkRepository {
           title: input.title,
           description: input.description ?? null,
           status: input.status ?? "draft",
-          isPublic: input.isPublic ?? false,
-          isDraft: input.isDraft ?? true,
           sortOrder: input.sortOrder ?? 0,
         })
         .returning();
@@ -139,8 +131,6 @@ export function createArtworkRepository(db: Database): ArtworkRepository {
           title: artwork.title,
           description: artwork.description,
           status: artwork.status,
-          isPublic: artwork.isPublic,
-          isDraft: artwork.isDraft,
           sortOrder: artwork.sortOrder,
           createdAt: artwork.createdAt,
           updatedAt: artwork.updatedAt,
@@ -156,8 +146,6 @@ export function createArtworkRepository(db: Database): ArtworkRepository {
         title: row.title,
         description: row.description,
         status: row.status,
-        isPublic: row.isPublic,
-        isDraft: row.isDraft,
         sortOrder: row.sortOrder,
         thumbnailR2Key: row.thumbnailR2Key,
         createdAt: row.createdAt,
@@ -193,8 +181,6 @@ function toArtwork(row: typeof artwork.$inferSelect): Artwork {
     title: row.title,
     description: row.description,
     status: row.status,
-    isPublic: row.isPublic,
-    isDraft: row.isDraft,
     sortOrder: row.sortOrder,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

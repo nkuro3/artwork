@@ -62,7 +62,11 @@ type AppEnv = {
   Variables: SessionVariables & { artworksDeps?: ArtworksRoutesDeps };
 };
 
-const VALID_STATUS: readonly ArtworkStatus[] = ["draft", "published"];
+const VALID_STATUS: readonly ArtworkStatus[] = [
+  "draft",
+  "published",
+  "archived",
+];
 
 /** 400 を投げる検証エラー。 */
 function badRequest(message: string): never {
@@ -80,7 +84,7 @@ function asRecord(value: unknown): Record<string, unknown> {
 /**
  * title: 文字列を検証して trim 済みを返す（空文字を許容）。
  * 下書きは空タイトル可のため、ここでは非空チェックをしない。
- * 「登録（isDraft=false 確定）」時の非空チェックは PATCH ハンドラで行う。
+ * 「公開（status='published' 確定）」時の非空チェックは PATCH ハンドラで行う。
  */
 function validateTitle(value: unknown): string {
   if (typeof value !== "string") {
@@ -89,17 +93,12 @@ function validateTitle(value: unknown): string {
   return (value as string).trim();
 }
 
-/** status: 'draft' | 'published' を検証。 */
+/** status: 'draft' | 'published' | 'archived' を検証（ADR D12）。 */
 function validateStatus(value: unknown): ArtworkStatus {
   if (!VALID_STATUS.includes(value as ArtworkStatus)) {
-    badRequest("status must be 'draft' or 'published'");
+    badRequest("status must be 'draft', 'published' or 'archived'");
   }
   return value as ArtworkStatus;
-}
-
-function validateBoolean(value: unknown, field: string): boolean {
-  if (typeof value !== "boolean") badRequest(`${field} must be a boolean`);
-  return value as boolean;
 }
 
 function validateSortOrder(value: unknown): number {
@@ -129,10 +128,6 @@ function parseCreateBody(raw: unknown): Omit<
   if (body.description !== undefined)
     input.description = validateDescription(body.description);
   if (body.status !== undefined) input.status = validateStatus(body.status);
-  if (body.isPublic !== undefined)
-    input.isPublic = validateBoolean(body.isPublic, "isPublic");
-  if (body.isDraft !== undefined)
-    input.isDraft = validateBoolean(body.isDraft, "isDraft");
   if (body.sortOrder !== undefined)
     input.sortOrder = validateSortOrder(body.sortOrder);
   return input;
@@ -146,10 +141,6 @@ function parseUpdateBody(raw: unknown): UpdateArtworkPatch {
   if (body.description !== undefined)
     patch.description = validateDescription(body.description);
   if (body.status !== undefined) patch.status = validateStatus(body.status);
-  if (body.isPublic !== undefined)
-    patch.isPublic = validateBoolean(body.isPublic, "isPublic");
-  if (body.isDraft !== undefined)
-    patch.isDraft = validateBoolean(body.isDraft, "isDraft");
   if (body.sortOrder !== undefined)
     patch.sortOrder = validateSortOrder(body.sortOrder);
   return patch;
@@ -242,10 +233,10 @@ export function createArtworksRoutes(injectedDeps?: ArtworksRoutesDeps) {
         if (row === null) throw new HTTPException(404, { message: "Not Found" });
         assertOwner(user.id, row);
 
-        // 「登録」= isDraft を false に確定する更新はタイトル必須（02 仕様「下書きモデル」）。
-        // patch 適用後の実効タイトル（patch.title 指定があればそれ、無ければ既存値）が
-        // 空なら 400 で弾く。
-        if (patch.isDraft === false) {
+        // 公開（status を 'published' に確定する更新）はタイトル必須（02 仕様
+        // 「作品の状態モデル」/ ADR D12）。patch 適用後の実効タイトル
+        // （patch.title 指定があればそれ、無ければ既存値）が空なら 400 で弾く。
+        if (patch.status === "published") {
           const effectiveTitle = (patch.title ?? row.title).trim();
           if (effectiveTitle === "") {
             throw new HTTPException(400, {

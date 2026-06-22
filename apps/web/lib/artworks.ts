@@ -5,6 +5,9 @@
 
 import type { ApiClient } from "./api";
 
+/** 作品の状態（ADR D12）。公開＝`published`。`draft`/`archived` は非公開。 */
+export type ArtworkStatus = "draft" | "published" | "archived";
+
 /** 作品の API 表現（RPC レスポンスを web で扱う最小集合）。日付は JSON 上 string。 */
 export interface Artwork {
   id: string;
@@ -12,13 +15,11 @@ export interface Artwork {
   artistProfileId: string;
   title: string;
   description: string | null;
-  status: "draft" | "published";
-  isPublic: boolean;
   /**
-   * 下書きフラグ（02 §6.6/6.7）。新規作成時 true。`status`（下書き/公開 enum）とは別概念で、
-   * 公開条件は `isPublic && !isDraft`（status は関与しない）。一覧では「draft」バッジに使う。
+   * 作品のライフサイクル（ADR D12 / 02「作品の状態モデル」）。
+   * `published` = 公開（検索・公開ページに出る）。`draft`/`archived` は非公開。
    */
-  isDraft: boolean;
+  status: ArtworkStatus;
   sortOrder: number;
   /**
    * 先頭画像のサムネ URL（一覧表示用 / B5・02 仕様 §6.5）。画像なしは null。
@@ -37,23 +38,19 @@ export type ArtworksClient = ApiClient;
 
 /** 作成入力（userId/artistProfileId はサーバー付与なので含めない / SEC-01）。 */
 export interface CreateArtworkInput {
+  /** タイトル（作成時は空可。既定 status=draft / ADR D12）。 */
   title: string;
   description?: string | null;
-  status?: "draft" | "published";
-  isPublic?: boolean;
-  /** 下書きフラグ（既定 true / §6.6）。下書き作成時は明示する。 */
-  isDraft?: boolean;
+  status?: ArtworkStatus;
   sortOrder?: number;
 }
 
-/** 更新パッチ（部分更新）。 */
+/** 更新パッチ（部分更新 / FR-08）。title/description/status を部分更新する。 */
 export interface UpdateArtworkPatch {
   title?: string;
   description?: string | null;
-  status?: "draft" | "published";
-  isPublic?: boolean;
-  /** 下書き確定（登録）= isDraft:false（§6.7）。 */
-  isDraft?: boolean;
+  /** 状態変更。`published` にするのは実効タイトル必須（api が最終判定 / ADR D12）。 */
+  status?: ArtworkStatus;
   sortOrder?: number;
 }
 
@@ -96,6 +93,11 @@ async function errorFrom(res: Response): Promise<string> {
 function normalizeTitle(title: string): string | null {
   const trimmed = title.trim();
   return trimmed === "" ? null : trimmed;
+}
+
+/** create 用 title 正規化。トリムするが空も許容する（既定 draft / ADR D12）。 */
+function normalizeCreateTitle(title: string): string {
+  return title.trim();
 }
 
 /** 自分の作品一覧を取得する（FR-05）。 */
@@ -149,22 +151,16 @@ export async function getArtworkImages(
 
 /**
  * 作品を作成する（FR-05 / §6.6）。
- * 下書き作成（isDraft）は title 空を許容する（api が受理。登録は PATCH で確定）。
- * isDraft 指定がない通常作成は従来どおり title 非空を最小バリデーションする。
+ * 既定 status=draft で作成し、title は空を許容する（api が受理 / ADR D12）。
+ * 公開（published）への確定はその後の PATCH で行い、その時のみタイトル必須となる。
  */
 export async function createArtwork(
   client: ArtworksClient,
   input: CreateArtworkInput,
 ): Promise<Result<Artwork>> {
-  const allowEmptyTitle = input.isDraft === true;
-  const title = allowEmptyTitle ? input.title.trim() : normalizeTitle(input.title);
-  if (title === null) return fail("title is required");
-
-  const json: CreateArtworkInput = { title };
+  const json: CreateArtworkInput = { title: normalizeCreateTitle(input.title) };
   if (input.description !== undefined) json.description = input.description;
   if (input.status !== undefined) json.status = input.status;
-  if (input.isPublic !== undefined) json.isPublic = input.isPublic;
-  if (input.isDraft !== undefined) json.isDraft = input.isDraft;
   if (input.sortOrder !== undefined) json.sortOrder = input.sortOrder;
 
   try {
@@ -190,8 +186,6 @@ export async function updateArtwork(
   }
   if (patch.description !== undefined) json.description = patch.description;
   if (patch.status !== undefined) json.status = patch.status;
-  if (patch.isPublic !== undefined) json.isPublic = patch.isPublic;
-  if (patch.isDraft !== undefined) json.isDraft = patch.isDraft;
   if (patch.sortOrder !== undefined) json.sortOrder = patch.sortOrder;
 
   try {

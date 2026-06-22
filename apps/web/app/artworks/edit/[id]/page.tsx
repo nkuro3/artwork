@@ -42,13 +42,11 @@ export default async function EditArtworkPage({
       <h1>作品を編集</h1>
       <ArtworkForm
         artworkId={art.id}
-        isDraft={art.isDraft}
         initialImages={initialImages}
         defaults={{
           title: art.title,
           description: art.description ?? "",
           status: art.status,
-          isPublic: art.isPublic,
         }}
       />
     </>

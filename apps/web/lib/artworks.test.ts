@@ -27,7 +27,6 @@ const SAMPLE = {
   title: "夜",
   description: null,
   status: "draft",
-  isPublic: false,
   sortOrder: 0,
   thumbnailUrl: "https://img.example/artworks/a1.jpg/thumb",
   createdAt: "2026-06-01T00:00:00.000Z",
@@ -137,48 +136,39 @@ describe("listArtworks", () => {
 });
 
 describe("createArtwork", () => {
-  it("title をトリムして RPC に渡し、作成結果を返す", async () => {
+  it("title を生値のまま RPC に渡し、作成結果を返す（既定 draft・空可）", async () => {
     const { client, post } = mockClient();
-    const result = await createArtwork(client, { title: "  夜  " });
+    const result = await createArtwork(client, { title: "" });
 
     expect(post).toHaveBeenCalledTimes(1);
-    expect(post).toHaveBeenCalledWith({ json: { title: "夜" } });
+    expect(post).toHaveBeenCalledWith({ json: { title: "" } });
     expect(result.ok).toBe(true);
   });
 
-  it("description / status / isPublic を指定すれば json に載せる", async () => {
+  it("description / status を指定すれば json に載せる", async () => {
     const { client, post } = mockClient();
     await createArtwork(client, {
       title: "夜",
       description: "説明",
       status: "published",
-      isPublic: true,
     });
     expect(post).toHaveBeenCalledWith({
       json: {
         title: "夜",
         description: "説明",
         status: "published",
-        isPublic: true,
       },
     });
   });
 
-  it("isDraft=true を指定すれば json に載せ、空 title も許容する", async () => {
+  it("status=draft で空 title の下書きを作成できる", async () => {
     const { client, post } = mockClient();
-    const result = await createArtwork(client, { title: "", isDraft: true });
+    const result = await createArtwork(client, { title: "", status: "draft" });
 
-    expect(post).toHaveBeenCalledWith({ json: { title: "", isDraft: true } });
+    expect(post).toHaveBeenCalledWith({
+      json: { title: "", status: "draft" },
+    });
     expect(result.ok).toBe(true);
-  });
-
-  it("title 空はバリデーションエラー（RPC を呼ばない）", async () => {
-    const { client, post } = mockClient();
-    const result = await createArtwork(client, { title: "   " });
-
-    expect(post).not.toHaveBeenCalled();
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/title/i);
   });
 
   it("非 ok レスポンスは失敗に正規化する", async () => {
@@ -212,22 +202,22 @@ describe("updateArtwork", () => {
 
   it("title 未指定の部分更新は許可する", async () => {
     const { client, patch } = mockClient();
-    const result = await updateArtwork(client, "a1", { isPublic: true });
+    const result = await updateArtwork(client, "a1", { status: "published" });
 
     expect(patch).toHaveBeenCalledWith({
       param: { id: "a1" },
-      json: { isPublic: true },
+      json: { status: "published" },
     });
     expect(result.ok).toBe(true);
   });
 
-  it("isDraft=false（登録）を json に載せる", async () => {
+  it("status=archived を json に載せる", async () => {
     const { client, patch } = mockClient();
-    const result = await updateArtwork(client, "a1", { isDraft: false });
+    const result = await updateArtwork(client, "a1", { status: "archived" });
 
     expect(patch).toHaveBeenCalledWith({
       param: { id: "a1" },
-      json: { isDraft: false },
+      json: { status: "archived" },
     });
     expect(result.ok).toBe(true);
   });

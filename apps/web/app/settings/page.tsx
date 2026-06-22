@@ -45,6 +45,9 @@ export default async function SettingsPage() {
         }}
       />
       <p>
+        <a href="/portfolio/edit">ポートフォリオ編集</a>
+      </p>
+      <p>
         公開ポートフォリオ: <a href={`/p/${profile.slug}`}>/p/{profile.slug}</a>
       </p>
       <p>
