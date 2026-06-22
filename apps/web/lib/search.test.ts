@@ -17,8 +17,13 @@ function res(body: unknown, ok = true, status = ok ? 200 : 400): Response {
 // C5 の公開 DTO（JSON 化後）。
 const SAMPLE: SearchDto = {
   artworks: [
-    { id: "a1", title: "月", thumbnailUrl: "https://img/t1" },
-    { id: "a2", title: "星", thumbnailUrl: null },
+    {
+      id: "a1",
+      title: "月",
+      artistSlug: "yoru",
+      thumbnailUrl: "https://img/t1",
+    },
+    { id: "a2", title: "星", artistSlug: "yoru", thumbnailUrl: null },
   ],
   artists: [{ slug: "yoru", displayName: "夜のアーティスト" }],
 };
@@ -77,8 +82,8 @@ describe("searchAll", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.artworks).toEqual([
-        { id: "a1", title: "月", thumbnailUrl: null },
-        { id: "", title: "", thumbnailUrl: null },
+        { id: "a1", title: "月", artistSlug: "", thumbnailUrl: null },
+        { id: "", title: "", artistSlug: "", thumbnailUrl: null },
       ]);
       expect(result.data.artists).toEqual([{ slug: "yoru", displayName: "" }]);
     }

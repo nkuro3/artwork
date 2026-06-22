@@ -17,6 +17,8 @@ export interface SearchArtworkDto {
   id: string;
   title: string;
   slug?: string;
+  /** 作者の公開 slug（公開作品詳細 `/p/{artistSlug}/{id}` への遷移用）。作品 slug とは別。 */
+  artistSlug: string;
   /** 先頭画像のサムネイル URL。画像未登録なら null。 */
   thumbnailUrl: string | null;
 }

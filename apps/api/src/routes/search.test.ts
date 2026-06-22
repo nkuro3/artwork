@@ -19,9 +19,21 @@ function request(repo: SearchRepository, path: string) {
 }
 
 const ARTWORKS: SearchArtworkRow[] = [
-  { id: "art-1", title: "Sunset", slug: "sunset", r2Key: "artworks/a1.jpg" },
+  {
+    id: "art-1",
+    title: "Sunset",
+    slug: "sunset",
+    artistSlug: "alice",
+    r2Key: "artworks/a1.jpg",
+  },
   // r2Key が無い作品（画像未登録）は thumbnailUrl=null。
-  { id: "art-2", title: "No Image", slug: null, r2Key: null },
+  {
+    id: "art-2",
+    title: "No Image",
+    slug: null,
+    artistSlug: "bob",
+    r2Key: null,
+  },
 ];
 
 const ARTISTS: SearchArtistRow[] = [
@@ -65,6 +77,7 @@ describe("GET /search", () => {
         id: string;
         title: string;
         slug?: string | null;
+        artistSlug: string;
         thumbnailUrl: string | null;
       }[];
       artists: { slug: string; displayName: string }[];
@@ -76,6 +89,7 @@ describe("GET /search", () => {
     expect(first?.id).toBe("art-1");
     expect(first?.title).toBe("Sunset");
     expect(first?.slug).toBe("sunset");
+    expect(first?.artistSlug).toBe("alice");
     expect(first?.thumbnailUrl).toContain(IMAGE_BASE_URL);
     expect(first?.thumbnailUrl).toContain(
       `/cdn-cgi/image/width=${IMAGE_WIDTHS.thumbnail}`,
@@ -85,6 +99,7 @@ describe("GET /search", () => {
     // 画像未登録の作品は thumbnailUrl=null。
     const second = body.artworks[1];
     expect(second?.id).toBe("art-2");
+    expect(second?.artistSlug).toBe("bob");
     expect(second?.thumbnailUrl).toBeNull();
   });
 

@@ -36,6 +36,8 @@ export interface SearchArtworkRow {
   id: string;
   title: string;
   slug: string | null;
+  /** 作者の公開 slug（artist_profile.slug を join して取得）。公開作品詳細 URL 用。 */
+  artistSlug: string;
   r2Key: string | null;
 }
 
@@ -85,9 +87,15 @@ export function createSearchRepository(db: Database): SearchRepository {
         .select({
           id: artwork.id,
           title: artwork.title,
+          // 公開作品詳細 URL 用に作者の slug を join して取得。
+          artistSlug: artistProfile.slug,
           r2Key: firstImageKey,
         })
         .from(artwork)
+        .innerJoin(
+          artistProfile,
+          eq(artwork.artistProfileId, artistProfile.id),
+        )
         .where(
           and(
             eq(artwork.status, "published"),
@@ -112,6 +120,7 @@ export function createSearchRepository(db: Database): SearchRepository {
           title: row.title,
           // 現スキーマに作品 slug は無いため常に null（型は将来用に確保）。
           slug: null,
+          artistSlug: row.artistSlug,
           r2Key: row.r2Key,
         })),
         artists: artistRows.map((row) => ({

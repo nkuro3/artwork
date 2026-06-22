@@ -56,6 +56,8 @@ function toSearch(raw: unknown): SearchDto {
         title: typeof art.title === "string" ? art.title : "",
         // slug は任意。文字列のときだけ載せる（exactOptionalPropertyTypes）。
         ...(typeof art.slug === "string" ? { slug: art.slug } : {}),
+        // 作者 slug（公開作品詳細リンク用）。文字列でなければ空文字へ正規化。
+        artistSlug: typeof art.artistSlug === "string" ? art.artistSlug : "",
         thumbnailUrl:
           typeof art.thumbnailUrl === "string" ? art.thumbnailUrl : null,
       };
