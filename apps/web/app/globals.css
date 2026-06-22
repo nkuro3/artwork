@@ -181,3 +181,26 @@ button:not(:disabled):hover {
 [role="alert"] {
   color: var(--color-error);
 }
+
+/* 作品一覧グリッド（§4 グリッド列数 / §6.5）。
+   <md=1列 / ≥md=2列、より広い幅で3列。余白はトークン。 */
+.artwork-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .artwork-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .artwork-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

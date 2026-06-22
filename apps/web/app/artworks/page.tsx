@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createApiClient } from "../../lib/api";
@@ -11,6 +12,36 @@ import { DeleteArtworkButton } from "./delete-button";
 // 行わず /verify で確認する。
 
 export const dynamic = "force-dynamic";
+
+// 一覧データ（lib/artworks の Artwork）には先頭画像のサムネ URL が無いため、
+// サムネは表示しない（api 側の対応＝@web スコープ外）。タイトル・状態・公開可否・
+// 編集/削除のみを各カードに出す（§6.5）。
+
+const cardStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-2)",
+  padding: "var(--space-4)",
+  border: "1px solid var(--color-border)",
+  borderRadius: "var(--radius-sm)",
+};
+
+const metaStyle: CSSProperties = {
+  fontSize: "var(--text-sm)",
+  color: "var(--color-text-muted)",
+};
+
+const actionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "var(--space-4)",
+  marginTop: "auto",
+  paddingTop: "var(--space-2)",
+};
+
+const emptyStyle: CSSProperties = {
+  color: "var(--color-text-muted)",
+};
 
 export default async function ArtworksPage() {
   const session = await getSession();
@@ -34,17 +65,22 @@ export default async function ArtworksPage() {
       {!result.ok ? (
         <p role="alert">作品の取得に失敗しました: {result.error}</p>
       ) : result.data.length === 0 ? (
-        <p>作品がまだありません。</p>
+        <p style={emptyStyle}>
+          作品がまだありません。<a href="/artworks/new">新規作成</a>
+        </p>
       ) : (
-        <ul>
+        <ul className="artwork-grid">
           {result.data.map((art) => (
-            <li key={art.id}>
+            <li key={art.id} style={cardStyle}>
               <a href={`/artworks/edit/${art.id}`}>{art.title}</a>
-              <span>
+              <span style={metaStyle}>
                 {art.status === "published" ? "公開" : "下書き"}
-                {art.isPublic ? " / 公開可" : ""}
+                {art.isPublic ? " / 公開可" : " / 非公開"}
               </span>
-              <DeleteArtworkButton id={art.id} />
+              <span style={actionsStyle}>
+                <a href={`/artworks/edit/${art.id}`}>編集</a>
+                <DeleteArtworkButton id={art.id} />
+              </span>
             </li>
           ))}
         </ul>
