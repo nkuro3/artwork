@@ -13,9 +13,6 @@ export default async function NewArtworkPage() {
     <>
       <h1>作品を作成</h1>
       <ArtworkForm />
-      <p>
-        <a href="/artworks">一覧へ戻る</a>
-      </p>
     </>
   );
 }

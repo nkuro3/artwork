@@ -43,9 +43,6 @@ export default async function EditArtworkPage({
           isPublic: art.isPublic,
         }}
       />
-      <p>
-        <a href="/artworks">一覧へ戻る</a>
-      </p>
     </>
   );
 }
