@@ -8,7 +8,7 @@
 
 ## Phase A — 基盤（全画面共通・依存元）
 
-- [ ] **A1 デザイン基盤トークン** `@web` — `globals.css` 等に仕様 §4 のトークンを実装（LINE Seed JP 読込 + CSS 変数: フォント / サイズスケール / leading 1.7 / tracking 0.02em / 余白 / 機能色 / フォーカスリング / 角丸 / コンポーネント寸法）。入力・ボタン・チェックボックスの基本スタイル。受入: 全トークンが参照可能・主要フォーム要素に適用・`bun run build:cf` が通る。（§4）
+- [x] **A1 デザイン基盤トークン** `@web` — `globals.css` 等に仕様 §4 のトークンを実装（LINE Seed JP 読込 + CSS 変数: フォント / サイズスケール / leading 1.7 / tracking 0.02em / 余白 / 機能色 / フォーカスリング / 角丸 / コンポーネント寸法）。入力・ボタン・チェックボックスの基本スタイル。受入: 全トークンが参照可能・主要フォーム要素に適用・`bun run build:cf` が通る。（§4） ✅ globals.css に CSS 変数(9色+全スケール)+base スタイル、layout で import。LINE Seed JP は安定CDN無のためフォールバック（資産入手後 @font-face で差替）。test93/typecheck/lint/next build 緑。
   - 補足: LINE Seed JP のフォント資産（self-host or CDN）の入手が必要。無ければ system フォールバックで進め、後差し替え可。
 - [ ] **A2 共通レイアウト/ナビ** `@web` — `layout.tsx` に共通ヘッダー（認証状態別リンク §5.1）+ コンテナ（標準960px / フォーム480px）。状態の共通パターン（loading / empty / error / 404 §5.2）の方針・共通部品。受入: 全ページにヘッダー表示・認証状態別の出し分け・`md` 未満でナビ折返し。（§5.1, §5.2）
 
