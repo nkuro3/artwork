@@ -25,7 +25,7 @@ export default async function ArtworksPage() {
   const result = await listArtworks(client);
 
   return (
-    <main>
+    <>
       <h1>作品管理</h1>
       <p>
         <a href="/artworks/new">新規作成</a>
@@ -49,6 +49,6 @@ export default async function ArtworksPage() {
           ))}
         </ul>
       )}
-    </main>
+    </>
   );
 }

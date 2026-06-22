@@ -56,7 +56,7 @@ export default async function ArtworkDetailPage({
   if (!artwork) notFound();
 
   return (
-    <main>
+    <>
       <article>
         <h1>{artwork.title}</h1>
         {artwork.description ? <p>{artwork.description}</p> : null}
@@ -70,6 +70,6 @@ export default async function ArtworkDetailPage({
       <nav>
         <a href={`/p/${slug}`}>{portfolio.profile.displayName} のポートフォリオへ戻る</a>
       </nav>
-    </main>
+    </>
   );
 }

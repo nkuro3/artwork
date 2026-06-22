@@ -52,7 +52,7 @@ export default async function PortfolioPage({
   const { profile, artworks } = portfolio;
 
   return (
-    <main>
+    <>
       <header>
         <h1>{profile.displayName}</h1>
         {profile.bio ? <p>{profile.bio}</p> : null}
@@ -78,6 +78,6 @@ export default async function PortfolioPage({
           })}
         </ul>
       )}
-    </main>
+    </>
   );
 }

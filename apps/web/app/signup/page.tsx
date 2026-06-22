@@ -33,7 +33,7 @@ export default function SignupPage() {
   }
 
   return (
-    <main>
+    <>
       <h1>アカウント作成</h1>
       <form onSubmit={onSubmit} noValidate>
         {errors.form ? <p role="alert">{errors.form}</p> : null}
@@ -61,6 +61,6 @@ export default function SignupPage() {
         </button>
       </form>
       <a href="/login">ログインへ</a>
-    </main>
+    </>
   );
 }

@@ -25,17 +25,17 @@ export default async function SettingsPage() {
 
   if (!result.ok) {
     return (
-      <main>
+      <>
         <h1>設定</h1>
         <p role="alert">プロフィールの取得に失敗しました: {result.error}</p>
-      </main>
+      </>
     );
   }
 
   const profile = result.data;
 
   return (
-    <main>
+    <>
       <h1>設定</h1>
       <SettingsForm
         defaults={{
@@ -48,6 +48,6 @@ export default async function SettingsPage() {
       <p>
         <a href="/artworks">作品一覧へ</a>
       </p>
-    </main>
+    </>
   );
 }

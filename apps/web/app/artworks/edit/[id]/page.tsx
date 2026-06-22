@@ -32,7 +32,7 @@ export default async function EditArtworkPage({
   const art = result.data;
 
   return (
-    <main>
+    <>
       <h1>作品を編集</h1>
       <ArtworkForm
         artworkId={art.id}
@@ -46,6 +46,6 @@ export default async function EditArtworkPage({
       <p>
         <a href="/artworks">一覧へ戻る</a>
       </p>
-    </main>
+    </>
   );
 }

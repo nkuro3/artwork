@@ -4,10 +4,10 @@ import { LogoutButton } from "../../components/logout-button";
 
 export default function LogoutPage() {
   return (
-    <main>
+    <>
       <h1>ログアウト</h1>
       <p>ログアウトしますか？</p>
       <LogoutButton />
-    </main>
+    </>
   );
 }

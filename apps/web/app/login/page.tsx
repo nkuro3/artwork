@@ -31,7 +31,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main>
+    <>
       <h1>ログイン</h1>
       <form onSubmit={onSubmit} noValidate>
         {errors.form ? <p role="alert">{errors.form}</p> : null}
@@ -54,6 +54,6 @@ export default function LoginPage() {
         </button>
       </form>
       <a href="/signup">アカウントを作成</a>
-    </main>
+    </>
   );
 }
