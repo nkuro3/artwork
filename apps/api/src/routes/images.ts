@@ -20,6 +20,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
 import { assertOwner } from "../lib/auth-guard";
+import { thumbnailUrl } from "../lib/image/url";
 import {
   type SessionVariables,
   getCurrentUser,
@@ -43,6 +44,15 @@ export interface ImageRoutesDeps {
   artworkRepo: ArtworkRepository;
   storage: StorageClient;
   generateId?: () => string;
+  /** 画像配信のベース URL（env `IMAGE_BASE_URL`）。一覧の thumbnailUrl 組み立て（B5）に使う。 */
+  imageBaseUrl: string;
+}
+
+/** 編集画面（02 §6.7）向けの画像一覧 DTO。内部スキーマ生値（r2Key 等）は出さない（ADR D5）。 */
+export interface ArtworkImageDto {
+  id: string;
+  thumbnailUrl: string;
+  sortOrder: number;
 }
 
 type AppEnv = {
@@ -147,6 +157,30 @@ export function createImageRoutes(injectedDeps?: ImageRoutesDeps) {
     new Hono<AppEnv>()
       // 全エンドポイントで認証必須。
       .use("*", requireAuth)
+      // 自作品の画像一覧（B4b / 02 §6.7 編集プリフィル）。所有者検証 → sort_order 昇順で
+      // DTO 整形。下書き/非公開でも所有者なら取得可。r2Key 等の生値は出さない（ADR D5）。
+      .get("/artworks/:id/images", async (c) => {
+        const deps = resolveDeps(injectedDeps, c);
+        const user = getCurrentUser(c);
+        const artworkId = c.req.param("id");
+
+        const artwork = await deps.artworkRepo.findById(artworkId);
+        if (artwork === null) {
+          throw new HTTPException(404, { message: "Not Found" });
+        }
+        assertOwner(user.id, artwork);
+
+        // listByArtwork は sort_order 昇順を返す契約だが、ここでも明示的に昇順を保証する。
+        const images = [...(await deps.imageRepo.listByArtwork(artworkId))].sort(
+          (a, b) => a.sortOrder - b.sortOrder,
+        );
+        const body: ArtworkImageDto[] = images.map((img) => ({
+          id: img.id,
+          thumbnailUrl: thumbnailUrl(deps.imageBaseUrl, img.r2Key),
+          sortOrder: img.sortOrder,
+        }));
+        return c.json(body);
+      })
       // 署名 URL 発行（NFR-02 / SEC-06 / ADR D9）。推測不能キーを採番し、
       // presigned PUT URL とそのキーを返す。アップロードはブラウザが R2 へ直接行う。
       .post(

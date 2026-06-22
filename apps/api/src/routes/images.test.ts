@@ -129,6 +129,8 @@ function createSeqId(): () => string {
   };
 }
 
+const IMAGE_BASE_URL = "https://img.example";
+
 function buildApp(
   user: SessionUser | null,
   deps: {
@@ -136,6 +138,7 @@ function buildApp(
     artworkRepo: ArtworkRepository;
     storage: MockStorage;
     generateId?: () => string;
+    imageBaseUrl?: string;
   },
 ) {
   const app = new Hono<{ Variables: SessionVariables }>();
@@ -152,6 +155,7 @@ function buildApp(
       // モック storage は StorageClient の利用部分（presignPutUrl/deleteObject）のみ満たす。
       storage: deps.storage as unknown as ImageRoutesDeps["storage"],
       generateId: deps.generateId ?? createSeqId(),
+      imageBaseUrl: deps.imageBaseUrl ?? IMAGE_BASE_URL,
     }),
   );
   return app;
@@ -184,6 +188,84 @@ describe("createImageRoutes — 認証", () => {
       body: JSON.stringify({ r2Key: "artworks/x.jpg" }),
     });
     expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /artworks/:id/images", () => {
+  it("未認証は 401", async () => {
+    const app = buildApp(null, {
+      imageRepo: createMockImageRepo([seedImage()]),
+      artworkRepo: createMockArtworkRepo([seedArtwork()]),
+      storage: createMockStorage(),
+    });
+    const res = await app.request("/artworks/art-1/images");
+    expect(res.status).toBe(401);
+  });
+
+  it("所有者なら 200・sort_order 昇順・thumbnailUrl 整形・r2Key 非公開", async () => {
+    const imageRepo = createMockImageRepo([
+      seedImage({ id: "img-1", r2Key: "artworks/a.jpg", sortOrder: 2 }),
+      seedImage({ id: "img-2", r2Key: "artworks/b.jpg", sortOrder: 0 }),
+      seedImage({ id: "img-3", r2Key: "artworks/c.jpg", sortOrder: 1 }),
+    ]);
+    const app = buildApp(OWNER, {
+      imageRepo,
+      // 下書き/非公開でも所有者なら取得可。
+      artworkRepo: createMockArtworkRepo([
+        seedArtwork({ status: "draft", isPublic: false }),
+      ]),
+      storage: createMockStorage(),
+    });
+    const res = await app.request("/artworks/art-1/images");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Array<{
+      id: string;
+      thumbnailUrl: string;
+      sortOrder: number;
+    }>;
+    // sort_order 昇順。
+    expect(body.map((i) => i.id)).toEqual(["img-2", "img-3", "img-1"]);
+    expect(body.map((i) => i.sortOrder)).toEqual([0, 1, 2]);
+    // thumbnailUrl は IMAGE_BASE_URL 由来で r2Key を含む。
+    expect(body[0]!.thumbnailUrl).toContain(IMAGE_BASE_URL);
+    expect(body[0]!.thumbnailUrl).toContain("artworks/b.jpg");
+    // 内部スキーマ生値（r2Key / userId 等）は出さない（ADR D5）。
+    for (const item of body) {
+      expect(item).not.toHaveProperty("r2Key");
+      expect(item).not.toHaveProperty("userId");
+      expect(item).not.toHaveProperty("artworkId");
+    }
+  });
+
+  it("画像が無い artwork は空配列", async () => {
+    const app = buildApp(OWNER, {
+      imageRepo: createMockImageRepo(),
+      artworkRepo: createMockArtworkRepo([seedArtwork()]),
+      storage: createMockStorage(),
+    });
+    const res = await app.request("/artworks/art-1/images");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it("他人の artwork は 403", async () => {
+    const app = buildApp(OTHER, {
+      imageRepo: createMockImageRepo([seedImage()]),
+      artworkRepo: createMockArtworkRepo([seedArtwork({ userId: "user-1" })]),
+      storage: createMockStorage(),
+    });
+    const res = await app.request("/artworks/art-1/images");
+    expect(res.status).toBe(403);
+  });
+
+  it("存在しない artwork は 404", async () => {
+    const app = buildApp(OWNER, {
+      imageRepo: createMockImageRepo(),
+      artworkRepo: createMockArtworkRepo(),
+      storage: createMockStorage(),
+    });
+    const res = await app.request("/artworks/missing/images");
+    expect(res.status).toBe(404);
   });
 });
 

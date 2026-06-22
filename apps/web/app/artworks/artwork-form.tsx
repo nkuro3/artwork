@@ -7,6 +7,7 @@ import { createArtworkAction, updateArtworkAction } from "./actions";
 import {
   ImageUploader,
   type ImageUploaderHandle,
+  type InitialImage,
 } from "./image-uploader";
 
 // B4 作品作成/編集フォーム（FR-06 / FR-08 / FR-09 / §6.6 / §6.7）。
@@ -28,6 +29,8 @@ export interface ArtworkFormProps {
   /** 編集対象の id。未指定なら新規作成。 */
   artworkId?: string;
   defaults?: ArtworkFormDefaults;
+  /** 既存画像（編集時のプリフィル / B4b・§6.7）。 */
+  initialImages?: InitialImage[];
 }
 
 const containerStyle: CSSProperties = {
@@ -65,7 +68,11 @@ const actionsStyle: CSSProperties = {
   marginTop: "var(--space-2)",
 };
 
-export function ArtworkForm({ artworkId, defaults }: ArtworkFormProps) {
+export function ArtworkForm({
+  artworkId,
+  defaults,
+  initialImages,
+}: ArtworkFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
@@ -210,6 +217,8 @@ export function ArtworkForm({ artworkId, defaults }: ArtworkFormProps) {
 
         <ImageUploader
           {...(artworkId ? { artworkId } : {})}
+          {...(initialImages ? { initialImages } : {})}
+          {...(defaults?.title ? { title: defaults.title } : {})}
           ensureArtworkId={ensureArtworkId}
           onReady={(h) => {
             uploaderRef.current = h;

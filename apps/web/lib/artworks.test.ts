@@ -3,6 +3,7 @@ import {
   createArtwork,
   deleteArtwork,
   getArtwork,
+  getArtworkImages,
   listArtworks,
   updateArtwork,
 } from "./artworks";
@@ -41,6 +42,14 @@ function mockClient(overrides: Partial<MockShape> = {}) {
   const del = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
 
   const get = vi.fn().mockResolvedValue(res(SAMPLE));
+  const imagesGet = vi
+    .fn()
+    .mockResolvedValue(
+      res([
+        { id: "i2", thumbnailUrl: "https://img.example/i2/thumb", sortOrder: 1 },
+        { id: "i1", thumbnailUrl: "https://img.example/i1/thumb", sortOrder: 0 },
+      ]),
+    );
 
   const client = {
     // E0: 全 api ルートを /api 配下へ寄せたため、hc のアクセスは client.api.* になる（ADR D4）。
@@ -55,13 +64,14 @@ function mockClient(overrides: Partial<MockShape> = {}) {
             $get: overrides.get ?? get,
             $patch: overrides.patch ?? patch,
             $delete: overrides.del ?? del,
+            images: { $get: overrides.imagesGet ?? imagesGet },
           },
         },
       ),
     },
   } as unknown as ArtworksClient;
 
-  return { client, list, post, patch, del, get };
+  return { client, list, post, patch, del, get, imagesGet };
 }
 
 interface MockShape {
@@ -70,6 +80,7 @@ interface MockShape {
   patch: ReturnType<typeof vi.fn>;
   del: ReturnType<typeof vi.fn>;
   get: ReturnType<typeof vi.fn>;
+  imagesGet: ReturnType<typeof vi.fn>;
 }
 
 describe("getArtwork", () => {
@@ -200,6 +211,42 @@ describe("updateArtwork", () => {
       json: { isPublic: true },
     });
     expect(result.ok).toBe(true);
+  });
+});
+
+describe("getArtworkImages", () => {
+  it("id を param に渡し、sortOrder 昇順で正規化して返す", async () => {
+    const { client, imagesGet } = mockClient();
+    const result = await getArtworkImages(client, "a1");
+
+    expect(imagesGet).toHaveBeenCalledWith({ param: { id: "a1" } });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.map((i) => i.id)).toEqual(["i1", "i2"]);
+      expect(result.data[0]).toEqual({
+        id: "i1",
+        thumbnailUrl: "https://img.example/i1/thumb",
+        sortOrder: 0,
+      });
+    }
+  });
+
+  it("非 ok レスポンスは失敗に正規化する", async () => {
+    const { client } = mockClient({
+      imagesGet: vi
+        .fn()
+        .mockResolvedValue(res({ message: "Forbidden" }, false, 403)),
+    });
+    const result = await getArtworkImages(client, "a1");
+    expect(result.ok).toBe(false);
+  });
+
+  it("RPC 例外を失敗に倒す", async () => {
+    const { client } = mockClient({
+      imagesGet: vi.fn().mockRejectedValue(new Error("network")),
+    });
+    const result = await getArtworkImages(client, "a1");
+    expect(result.ok).toBe(false);
   });
 });
 

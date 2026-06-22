@@ -120,6 +120,8 @@ const imageDepsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
     imageRepo: createArtworkImageRepository(db),
     artworkRepo: createArtworkRepository(db),
     storage,
+    // 自作品の画像一覧 thumbnailUrl 組み立て（B4b / B5）。
+    imageBaseUrl: c.env.IMAGE_BASE_URL,
   });
   await next();
 };

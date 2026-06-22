@@ -48,6 +48,16 @@ export interface UpdateArtworkPatch {
   sortOrder?: number;
 }
 
+/**
+ * 作品に紐づく画像の web 表現（編集プリフィル用 / B4b・02 仕様 §6.7）。
+ * api の認証付き `GET /artworks/:id/images` の DTO に対応（sort_order 昇順）。
+ */
+export interface ArtworkImage {
+  id: string;
+  thumbnailUrl: string;
+  sortOrder: number;
+}
+
 /** 正規化済みの結果。成功は data、失敗は人間可読な error。 */
 export type Result<T> =
   | { ok: true; data: T }
@@ -102,6 +112,27 @@ export async function getArtwork(
     const res = await client.api.artworks[":id"].$get({ param: { id } });
     if (!res.ok) return fail(await errorFrom(res));
     return ok((await res.json()) as Artwork);
+  } catch (e) {
+    return fail(messageOf(e));
+  }
+}
+
+/**
+ * 自分の作品の画像一覧を取得する（B4b / 02 §6.7 編集プリフィル）。
+ * 所有者検証は api 側。sortOrder 昇順に正規化して返す（api も昇順だが web でも保証）。
+ */
+export async function getArtworkImages(
+  client: ArtworksClient,
+  artworkId: string,
+): Promise<Result<ArtworkImage[]>> {
+  try {
+    const res = await client.api.artworks[":id"].images.$get({
+      param: { id: artworkId },
+    });
+    if (!res.ok) return fail(await errorFrom(res));
+    const data = (await res.json()) as ArtworkImage[];
+    const sorted = [...data].sort((a, b) => a.sortOrder - b.sortOrder);
+    return ok(sorted);
   } catch (e) {
     return fail(messageOf(e));
   }

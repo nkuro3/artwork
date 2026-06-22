@@ -19,7 +19,7 @@
 - [x] **B3 作品一覧/管理 整備** `@web` — グリッド（`md` で2〜3列）・空状態・削除確認・サムネ表示。受入: §6.5。（FR-05, FR-07） ✅ `.artwork-grid`(md2/lg3列)・カード(タイトル/状態/公開可否/編集/削除)・空状態・削除 confirm（既存）。build 緑。**サムネは B3b（api 未対応）に分離**。
 - [x] **B3b 作品一覧サムネ対応** `@api`+`@web` — `GET /artworks` の各作品に先頭画像 `thumbnailUrl` を含める（C4/B5 と同様の組み立て・public DTO）。web 一覧でサムネ表示（§6.5）。受入: 一覧に先頭画像サムネが出る。先にテスト（api の DTO 形）。 ✅ api: listByUser 相関サブクエリで先頭 r2_key→B5 で URL 化、`thumbnailUrl: string\|null`（内部 r2Key は非公開）。web: `<img>` 表示（null は出さない・alt=title）。api190/web98/build 緑。
 - [x] **B4 作品作成/編集 整備** `@web` — フォームレイアウト・画像アップロード/並び替え UI・状態・編集時プリフィル。受入: §6.6, §6.7。（FR-06, FR-08, FR-09） ✅ `artwork-form.tsx`(480px・label・タイトル必須・二重送信防止)、`image-uploader.tsx`(選択時アップロード・進捗/エラー・↑↓並び替え・削除)、`lib/reorder.ts`(13テスト)、edit の not-found。注: 新規は遅延作成、**編集時の既存画像プリフィルは B4b（api 未対応）**。web111/build 緑。
-- [ ] **B4b 自分の作品の画像一覧 API + 編集プリフィル** `@api`+`@web` — 認証付き `GET /api/artworks/:id/images`（所有者のみ、下書き含む。先頭からの画像配列 + thumbnailUrl）を追加。web の編集画面で既存画像を表示/削除/並び替え可能に（§6.7）。先にテスト（所有者検証・DTO 形）。受入: 編集で既存画像が出る。
+- [x] **B4b 自分の作品の画像一覧 API + 編集プリフィル** `@api`+`@web` — 認証付き `GET /api/artworks/:id/images`（所有者のみ、下書き含む。先頭からの画像配列 + thumbnailUrl）を追加。web の編集画面で既存画像を表示/削除/並び替え可能に（§6.7）。先にテスト（所有者検証・DTO 形）。受入: 編集で既存画像が出る。 ✅ api: GET /artworks/:id/images（404→403→sort昇順 DTO {id,thumbnailUrl,sortOrder}、r2Key 非公開）+5。web: `getArtworkImages`、edit で initialImages 渡し、既存+新規を統合（削除/並び替え）。api195/web114/build 緑。
 - [ ] **B5 設定 整備** `@web` — 公開トグル削除（公開制御は作品単位 is_public に統一）・slug / bio・状態・公開ポートフォリオへのリンク。受入: §6.8。（FR-03, FR-11）
 - [ ] **B6 検索結果 `/search`（新規）** `@web` — 検索ボックス + 結果（作品グリッド / 作者リスト）+ 空クエリ/0件 状態。検索 API（C5）を利用。受入: §6.9。データ取得ロジックは先にテスト、画面は `/verify`。（FR-17）
 - [ ] **B7 公開ポートフォリオ `/p/[slug]` 整備** `@web` — グリッド（`md` 3列）・bio・レスポンシブ。受入: §6.10。（FR-11〜13, FR-16）

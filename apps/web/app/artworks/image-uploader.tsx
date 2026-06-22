@@ -19,13 +19,22 @@ import { uploadArtworkImage } from "../../lib/upload";
 interface UploadItem {
   /** ローカル一意キー（React key / 操作対象識別）。 */
   localId: string;
-  /** プレビュー用の objectURL。 */
+  /** プレビュー URL。新規=objectURL、既存=サーバーの thumbnailUrl。 */
   previewUrl: string;
+  /** 既存画像か（true なら previewUrl は objectURL ではない＝revoke しない）。 */
+  isExisting: boolean;
   fileName: string;
   status: "uploading" | "done" | "error";
   /** 成功時にサーバーが採番した画像 id（削除・並び替えに使う）。 */
   imageId?: string;
   error?: string;
+}
+
+/** 既存画像（編集プリフィル / B4b）。 */
+export interface InitialImage {
+  id: string;
+  thumbnailUrl: string;
+  sortOrder: number;
 }
 
 export interface ImageUploaderHandle {
@@ -36,6 +45,10 @@ export interface ImageUploaderHandle {
 export interface ImageUploaderProps {
   /** 既存作品の id（編集時）。未指定なら新規で、初回アップロード時に ensureArtworkId で確定する。 */
   artworkId?: string;
+  /** 既存画像（編集時のプリフィル / B4b・§6.7）。sortOrder 昇順で渡す想定。 */
+  initialImages?: InitialImage[];
+  /** 既存画像の alt / ラベルに使う作品タイトル（§5.5）。 */
+  title?: string;
   /**
    * アップロード先の artwork id を確定して返す。新規作成時は親が作品を作って id を返す。
    * 既に確定済みなら同じ id を返すだけでよい。
@@ -100,20 +113,53 @@ function nextLocalId(): string {
   return `img-${seq}-${Date.now()}`;
 }
 
-export function ImageUploader({ artworkId, ensureArtworkId, onReady }: ImageUploaderProps) {
-  const [items, setItems] = useState<UploadItem[]>([]);
+/** 既存画像 → 初期 UploadItem（done 済み・revoke 不要）。sortOrder 昇順に整える。 */
+function initialItemsFrom(
+  images: InitialImage[] | undefined,
+  title: string | undefined,
+): UploadItem[] {
+  if (!images || images.length === 0) return [];
+  const label = title && title.trim() !== "" ? title : "作品画像";
+  return [...images]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((img) => ({
+      localId: nextLocalId(),
+      previewUrl: img.thumbnailUrl,
+      isExisting: true,
+      fileName: label,
+      status: "done" as const,
+      imageId: img.id,
+    }));
+}
+
+export function ImageUploader({
+  artworkId,
+  initialImages,
+  title,
+  ensureArtworkId,
+  onReady,
+}: ImageUploaderProps) {
+  const [items, setItems] = useState<UploadItem[]>(() =>
+    initialItemsFrom(initialImages, title),
+  );
   // commitOrder から最新 items を読むための ref（クロージャの陳腐化防止）。
-  const itemsRef = useRef<UploadItem[]>([]);
+  const itemsRef = useRef<UploadItem[]>(items);
   itemsRef.current = items;
   // アップロードで確定した artwork id（新規作成後はこれを使う）。
   const resolvedIdRef = useRef<string | undefined>(artworkId);
   // 確定済みの並び順（最後に PATCH した順 or 初期順）。差分判定に使う。
-  const committedOrderRef = useRef<string[]>([]);
+  // 既存画像の現在順をシードしておく（並び替え後の差分判定の基準）。
+  const committedOrderRef = useRef<string[]>(
+    initialItemsFrom(initialImages, title).map((it) => it.imageId as string),
+  );
 
-  // objectURL のリーク防止（アンマウント時にまとめて revoke）。
+  // objectURL のリーク防止（アンマウント時にまとめて revoke）。既存画像（isExisting）は
+  // objectURL ではないため revoke 対象外。
   useEffect(() => {
     return () => {
-      for (const it of itemsRef.current) URL.revokeObjectURL(it.previewUrl);
+      for (const it of itemsRef.current) {
+        if (!it.isExisting) URL.revokeObjectURL(it.previewUrl);
+      }
     };
   }, []);
 
@@ -162,6 +208,7 @@ export function ImageUploader({ artworkId, ensureArtworkId, onReady }: ImageUplo
       created.push({
         localId,
         previewUrl: URL.createObjectURL(file),
+        isExisting: false,
         fileName: file.name,
         status: "uploading",
       });
@@ -192,7 +239,7 @@ export function ImageUploader({ artworkId, ensureArtworkId, onReady }: ImageUplo
         (id) => id !== item.imageId,
       );
     }
-    URL.revokeObjectURL(item.previewUrl);
+    if (!item.isExisting) URL.revokeObjectURL(item.previewUrl);
     setItems((prev) => prev.filter((it) => it.localId !== localId));
   }
 
