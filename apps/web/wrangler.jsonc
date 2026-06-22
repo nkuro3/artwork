@@ -1,0 +1,49 @@
+{
+  // web Worker（Next.js / OpenNext）。ADR D2 / D4。
+  // 生成・既定は @opennextjs/cloudflare@1.19.11 の templates/wrangler.jsonc に準拠。
+  // 参照: https://opennext.js.org/cloudflare/get-started
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "artwork-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-06-01",
+  // nodejs_compat: Next ランタイムが要求。
+  // global_fetch_strictly_public: Worker からの fetch を公開ルーティング経由にする。
+  //   RSC/Server Action の API_URL(=https://artwork-store.jp/api/*) は別 Worker(api)
+  //   なので、このフラグでエッジを通って /api/* ルートに正しく届く（OpenNext 既定）。
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+  // 本番ルーティング（ADR D4 同一オリジン）: web は /* を取り、より具体的な /api/* は
+  // 既デプロイの api Worker が優先で奪う。zone は artwork-store.jp。
+  "routes": [{ "pattern": "artwork-store.jp/*", "zone_name": "artwork-store.jp" }],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "services": [
+    {
+      // 自己参照のサービスバインディング（キャッシュ revalidation 用）。
+      // service 名は name と一致させる。see https://opennext.js.org/cloudflare/caching
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "artwork-web"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      // インクリメンタルキャッシュ用。画像用 artwork-images とは別用途の専用バケット。
+      // deploy 前に作成: wrangler r2 bucket create artwork-web-opennext-cache
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "artwork-web-opennext-cache"
+    }
+  ],
+
+  // 非機密の本番設定（ADR D11）。機密は置かない。
+  // API_URL: サーバー側 RSC/Server Action の fetch は絶対 URL が必須（Worker 上で
+  //   相対は解決できない）。同一オリジンなので https://artwork-store.jp を指す。
+  // NEXT_PUBLIC_API_URL は本番では未設定でよい（ブラウザは相対で同一オリジンに届く）。
+  "vars": {
+    "API_URL": "https://artwork-store.jp"
+  }
+}

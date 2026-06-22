@@ -2,19 +2,28 @@
   "name": "@artwork/api",
   "version": "0.1.0",
   "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "sync-dev-storage": "bun --env-file=.dev.vars scripts/sync-dev-storage.ts"
   },
   "dependencies": {
     "@artwork/database": "workspace:*",
     "@artwork/shared": "workspace:*",
     "hono": "^4",
-    "better-auth": "latest"
+    "better-auth": "latest",
+    "aws4fetch": "^1",
+    "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
     "@artwork/config": "workspace:*",
+    "@cloudflare/workers-types": "^4",
     "wrangler": "^3",
     "typescript": "^5"
   }

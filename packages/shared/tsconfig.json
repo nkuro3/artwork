@@ -1,0 +1,4 @@
+{
+  "extends": "@artwork/config/typescript",
+  "include": ["src"]
+}

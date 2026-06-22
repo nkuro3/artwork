@@ -1,0 +1,24 @@
+name = "artwork-api"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 本番ルーティング（ADR D4）: 1 ドメインで /api/* を api Worker に振る。
+# 注意1: top-level キーなので [vars] テーブルより「前」に置く（TOML 仕様。後ろだと vars.routes に吸収される）。
+# 注意2: deploy 時にゾーン artwork-store.jp が Cloudflare に追加済み（Active）であること。
+# web Worker 側は artwork-store.jp/* を取り、より具体的な /api/* が api に優先される。
+routes = [
+  { pattern = "artwork-store.jp/api/*", zone_name = "artwork-store.jp" }
+]
+
+# 非機密の本番設定（ADR D11）。機密（DATABASE_URL / BETTER_AUTH_SECRET / R2 の S3 キー）は
+# [vars] に書かず `wrangler secret put <NAME>` で設定する。
+# ローカルは .dev.vars が [vars] を上書きする（localhost 値で開発）。
+# WEB_ORIGIN は本番では未設定（同一オリジン ADR D4 → CORS 無効でよい）。
+[vars]
+BETTER_AUTH_URL = "https://artwork-store.jp"
+R2_BUCKET_NAME = "artwork-images"
+IMAGE_BASE_URL = "https://images.artwork-store.jp"
+
+# 画像は presigned PUT（S3 API, aws4fetch）で R2 へ直接アップロードするため
+# R2 binding は必須ではない（ADR D10）。binding 経由にする場合のみ別途追加。
