@@ -1,5 +1,7 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createApiClient } from "../../../../lib/api";
 import {
@@ -16,6 +18,35 @@ import {
 // （`portfolio:<slug>` タグ共有）でラップ。作品/slug 更新時に Server Action 側で
 // `revalidateTag(portfolioTag(slug))` して無効化する。画面は薄く、検索・OGP 生成は
 // コア（lib/portfolio: findArtwork / buildArtworkMetadata）に委譲。レンダリングは /verify。
+//
+// B8 プレゼン整備（§6.11 / §4 トークン / §5.4・§5.5）: h1=作品タイトル・説明（任意）・画像
+// （詳細用大サイズ largeUrl、複数は縦並び）・`{作者}のポートフォリオへ戻る` リンク。画像は
+// 幅100%・アスペクト維持・コンテナ内に収め・alt=作品タイトル。装飾なし（ワイヤー品質）。
+// データ取得・unstable_cache・generateMetadata は不変。
+
+// 詳細画像: 幅100%・アスペクト維持・コンテナ内に収める（§5.4）。
+const imageStyle: CSSProperties = {
+  display: "block",
+  width: "100%",
+  height: "auto",
+  maxWidth: "100%",
+};
+
+// 画像の縦並び（複数画像）。トークン余白のみ、装飾なし。
+const figureStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-6)",
+  marginTop: "var(--space-6)",
+};
+
+const descriptionStyle: CSSProperties = {
+  color: "var(--color-text-muted)",
+};
+
+const backNavStyle: CSSProperties = {
+  marginTop: "var(--space-8)",
+};
 
 /** slug ごとにキャッシュした公開ポートフォリオ取得（D5 と同タグ共有）。null = 未存在/失敗。 */
 function loadPortfolio(slug: string): Promise<PortfolioDto | null> {
@@ -59,16 +90,30 @@ export default async function ArtworkDetailPage({
     <>
       <article>
         <h1>{artwork.title}</h1>
-        {artwork.description ? <p>{artwork.description}</p> : null}
+        {artwork.description ? (
+          <p style={descriptionStyle}>{artwork.description}</p>
+        ) : null}
 
-        {artwork.images.map((img, i) => (
-          // FR-15: 詳細は大サイズ（largeUrl）。複数画像は sort 済みで全表示。
-          <img key={img.largeUrl || i} src={img.largeUrl} alt={artwork.title} />
-        ))}
+        {artwork.images.length > 0 ? (
+          // §5.4 詳細は大サイズ（largeUrl）。複数画像は sort 済みで縦並び全表示。
+          <div style={figureStyle}>
+            {artwork.images.map((img, i) => (
+              // FR-15: 大サイズ。§5.4 幅100%/アスペクト維持・コンテナ内。§5.5 alt=タイトル。
+              <img
+                key={img.largeUrl || i}
+                src={img.largeUrl}
+                alt={artwork.title}
+                style={imageStyle}
+              />
+            ))}
+          </div>
+        ) : null}
       </article>
 
-      <nav>
-        <a href={`/p/${slug}`}>{portfolio.profile.displayName} のポートフォリオへ戻る</a>
+      <nav style={backNavStyle}>
+        <Link href={`/p/${slug}`}>
+          {portfolio.profile.displayName} のポートフォリオへ戻る
+        </Link>
       </nav>
     </>
   );

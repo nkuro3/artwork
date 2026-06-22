@@ -24,7 +24,7 @@
 - [x] **B6 検索結果 `/search`（新規）** `@web` — 検索ボックス + 結果（作品グリッド / 作者リスト）+ 空クエリ/0件 状態。検索 API（C5）を利用。受入: §6.9。データ取得ロジックは先にテスト、画面は `/verify`。（FR-17） ✅ `lib/search.ts` の `searchAll`(空q最適化・正規化、8テスト)、`app/search/page.tsx`(GET フォーム・作品グリッド md2列・作者リンク・空/0件状態)、`.search-grid`。web127/build 緑。**作品→詳細リンクは B6b（DTO に作者slug 無し）**。
 - [x] **B6b 検索作品に作者 slug + 詳細リンク** `@api`+`@web` — C5 `SearchArtworkDto` に作者 slug を追加（search-repository で artist_profile.slug を join）。web の検索作品結果を `/p/{artistSlug}/{id}` リンクに。先にテスト（DTO 形）。受入: 検索作品から詳細へ遷移できる。 ✅ api: `SearchArtworkDto.artistSlug`（innerJoin、必須）。web: 検索作品を `<Link href=/p/{artistSlug}/{id}>` に。api195/web127/build 緑。
 - [x] **B7 公開ポートフォリオ `/p/[slug]` 整備** `@web` — グリッド（`md` 3列）・bio・レスポンシブ。受入: §6.10。（FR-11〜13, FR-16） ✅ `.portfolio-grid`(`<md`2列/`≥md`3列)・h1 表示名・bio(muted)・サムネ+タイトルを `/p/{slug}/{id}` リンク・空状態。データ取得/cache/SEO は不変。web127/build 緑。
-- [ ] **B8 公開作品詳細 `/p/[slug]/[artworkId]` 整備** `@web` — 大画像・戻るリンク・レスポンシブ。受入: §6.11。（FR-14, FR-15）
+- [x] **B8 公開作品詳細 `/p/[slug]/[artworkId]` 整備** `@web` — 大画像・戻るリンク・レスポンシブ。受入: §6.11。（FR-14, FR-15） ✅ 画像は `largeUrl`（詳細用大・FR-15）を flex 縦並び（複数）・幅100%/アスペクト維持・alt=title、説明(muted)、`{表示名}のポートフォリオへ戻る`(/p/{slug}) を `Link` 化。データ取得/generateMetadata/notFound は不変。web127/build 緑。
 
 ## Phase C — 仕上げ
 
