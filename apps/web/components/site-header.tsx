@@ -42,7 +42,7 @@ export async function SiteHeader() {
             color: "var(--color-text)",
           }}
         >
-          アートワーク
+          Artwork
         </Link>
         <nav aria-label="メイン">
           <ul

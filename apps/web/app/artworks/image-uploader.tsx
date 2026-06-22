@@ -58,6 +58,12 @@ export interface ImageUploaderProps {
   onReady?: (handle: ImageUploaderHandle) => void;
 }
 
+// ファイル選択（枠なしネイティブ表示）。ラベルとの間・下のリストとの間に余白を確保する。
+const fileInputStyle: CSSProperties = {
+  display: "block",
+  margin: "var(--space-2) 0 var(--space-4)",
+};
+
 const listStyle: CSSProperties = {
   listStyle: "none",
   margin: 0,
@@ -278,6 +284,7 @@ export function ImageUploader({
         id="images"
         type="file"
         accept="image/*"
+        style={fileInputStyle}
         multiple
         onChange={(e) => {
           onSelectFiles(e.currentTarget.files);

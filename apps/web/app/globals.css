@@ -129,6 +129,15 @@ select {
   height: 40px;
 }
 
+/* ファイル選択はネイティブ表示のまま見せる（input の枠・背景・高さの箱を付けない） */
+input[type="file"] {
+  border: none;
+  background: transparent;
+  padding: 0;
+  height: auto;
+  border-radius: 0;
+}
+
 textarea {
   min-height: 40px;
 }
