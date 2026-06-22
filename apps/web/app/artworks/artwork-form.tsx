@@ -21,7 +21,7 @@ import {
 //   変更フィールドのみ PATCH（updateArtworkAction）で随時保存する。保存中/失敗は控えめに表示。
 // - 状態 select = 下書き/公開/アーカイブ（draft/published/archived）。`公開`(published)へ変更時は
 //   タイトル必須を client 検証し、空なら select を元の状態に戻して保存しない（フィールドエラー表示）。
-// - 画像は従来どおり ImageUploader（選択時保存・並び替え）。順序確定（commitOrder）も自動で行う。
+// - 画像は ImageUploader（選択時保存・並び替え）。順序確定（commitOrder）も自動で行う。
 // - `一覧へ戻る` リンクのみ。
 // 純ロジック（パッチ構築 / 公開時タイトル必須）は lib/artwork-edit でテスト。結線は型/ビルドで担保。
 
@@ -88,7 +88,7 @@ export function ArtworkForm({
   );
   const uploaderRef = useRef<ImageUploaderHandle | null>(null);
 
-  // 画像アップローダ用：id は常に存在するのでそのまま返す（遅延作成は不要）。
+  // 画像アップローダ用：artworkId は常に確定しているのでそのまま返す。
   const ensureArtworkId = useCallback(
     async (): Promise<{ ok: true; id: string }> => ({ ok: true, id: artworkId }),
     [artworkId],

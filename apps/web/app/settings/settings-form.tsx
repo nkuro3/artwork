@@ -12,7 +12,7 @@ import { ProfileSlugLink } from "../../components/profile-slug-link";
 
 // B5 設定フォーム（§6.8 / FR-03 プロフィール / Profile Slug）。薄いクライアントコンポーネント。
 // 入力は Server Action 経由で api に保存（ADR D6/D7）。フォーム用コンテナ 480px・縦積み・
-// トークン余白で整える（§4）。公開制御は作品の status（published）に統一（ADR D12）。
+// トークン余白で整える（§4）。公開は作品の status（published）で制御する（ADR D12）。
 // Profile Slug は UI 上 `@{slug}` 表記でプロフィールへのリンク、保持値に `@` は含めない（§6.8）。
 // エラー振り分け（slug 重複=alert / 形式=フィールド）は lib/profile-error.test.ts でカバー。
 

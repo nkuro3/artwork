@@ -6,14 +6,13 @@ import { createBrowserApiClient } from "../../lib/api";
 import { canMove, moveItem, sameOrder } from "../../lib/reorder";
 import { uploadArtworkImage } from "../../lib/upload";
 
-// B4 画像アップロード UI（§6.6 / §6.7）。
-// - ファイル選択 → ブラウザから署名 URL → R2 直 PUT → メタ作成（lib/upload は不変）。
+// 画像アップロード UI（§6.7）。
+// - ファイル選択 → ブラウザから署名 URL → R2 直 PUT → メタ作成（lib/upload）。
 // - アップロード中は進捗テキスト、失敗は role="alert"。複数可。サムネ一覧表示。
-// - 並び替えは ↑/↓（純ロジック lib/reorder）。順序確定は既存 PATCH order API（C3）。
-// - 削除は既存 DELETE /images/:id。
-// アップロードには artwork id が要るため、新規作成時は親から「id を確定させる」関数
-// （ensureArtworkId）を受け取り、初回アップロード時に作品を作る（遅延作成）。
-// 並び順の確定（PATCH order）は親フォームの送信完了後に commitOrder() を呼んで行う。
+// - 並び替えは ↑/↓（純ロジック lib/reorder）。順序は PATCH order API で確定。
+// - 削除は DELETE /images/:id。
+// アップロード先の artwork id は親から `ensureArtworkId` で受け取る（編集画面では常に確定済み）。
+// 並び替え直後に commitOrder() で順序を保存する（保存ボタンを持たないため）。
 
 /** クライアント側で 1 ファイルを追跡する状態。 */
 interface UploadItem {
@@ -43,16 +42,13 @@ export interface ImageUploaderHandle {
 }
 
 export interface ImageUploaderProps {
-  /** 既存作品の id（編集時）。未指定なら新規で、初回アップロード時に ensureArtworkId で確定する。 */
+  /** 編集中の作品 id。 */
   artworkId?: string;
-  /** 既存画像（編集時のプリフィル / B4b・§6.7）。sortOrder 昇順で渡す想定。 */
+  /** 既存画像のプリフィル（§6.7）。sortOrder 昇順で渡す想定。 */
   initialImages?: InitialImage[];
   /** 既存画像の alt / ラベルに使う作品タイトル（§5.5）。 */
   title?: string;
-  /**
-   * アップロード先の artwork id を確定して返す。新規作成時は親が作品を作って id を返す。
-   * 既に確定済みなら同じ id を返すだけでよい。
-   */
+  /** アップロード先の artwork id を返す（編集画面では確定済みの id をそのまま返す）。 */
   ensureArtworkId: () => Promise<{ ok: true; id: string } | { ok: false; error: string }>;
   /** commitOrder を親から呼べるように handle を公開する。 */
   onReady?: (handle: ImageUploaderHandle) => void;
@@ -151,7 +147,7 @@ export function ImageUploader({
   // commitOrder から最新 items を読むための ref（クロージャの陳腐化防止）。
   const itemsRef = useRef<UploadItem[]>(items);
   itemsRef.current = items;
-  // アップロードで確定した artwork id（新規作成後はこれを使う）。
+  // アップロード先の artwork id。
   const resolvedIdRef = useRef<string | undefined>(artworkId);
   // 確定済みの並び順（最後に PATCH した順 or 初期順）。差分判定に使う。
   // 既存画像の現在順をシードしておく（並び替え後の差分判定の基準）。
@@ -218,7 +214,7 @@ export function ImageUploader({
         fileName: file.name,
         status: "uploading",
       });
-      // 即時アップロード（id を確定 → サムネ/削除/並び替えを可能にする）。
+      // 選択と同時にアップロードする（サムネ/削除/並び替えを可能にするため）。
       void uploadOne(localId, file);
     }
     setItems((prev) => [...prev, ...created]);

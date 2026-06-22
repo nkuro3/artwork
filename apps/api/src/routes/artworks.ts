@@ -191,8 +191,7 @@ export function createArtworksRoutes(injectedDeps?: ArtworksRoutesDeps) {
       })
       // 作成（userId はサーバー付与 / SEC-01。FR-05,08,09）。
       // json 入力は `validator` で型を宣言し、web の `hc<AppType>()` に body 型を伝える
-      // （NFR-11 / ADR D5）。検証ロジックは従来の parseCreateBody を validator 内で実行し、
-      // 不正フィールドは 400（HTTPException）で従来どおり弾く（挙動不変）。
+      // （NFR-11 / ADR D5）。parseCreateBody で検証し、不正フィールドは 400（HTTPException）で弾く。
       .post("/", validator("json", (value) => parseCreateBody(value)), async (c) => {
         const { repo, resolveArtistProfileId } = resolveDeps(injectedDeps, c);
         const user = getCurrentUser(c);

@@ -115,8 +115,8 @@ export const artwork = pgTable(
       .references(() => artistProfile.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
-    // ADR D12: single lifecycle source. draft / published / archived.
-    // 公開（検索・公開ページに出る）= status='published'。`isDraft`/`isPublic` は持たない。
+    // ADR D12: 作品のライフサイクル。draft / published / archived。
+    // 公開（検索・公開ページに出る）= status='published'。
     status: artworkStatus("status").notNull().default("draft"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })

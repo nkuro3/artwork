@@ -31,9 +31,8 @@ export interface Artwork {
   updatedAt: string;
 }
 
-// C5b: `AppType` に /artworks のルート型が載ったので、コアは型付き RPC クライアント
-// （`ApiClient` = `hc<AppType>()`）をそのまま受け取る。以前の構造的部分集合インターフェース
-// は cast 前提で型安全でなかったため廃止し、hc 由来の精密な型に揃えた（NFR-11 / ADR D5）。
+// コアは型付き RPC クライアント（`ApiClient` = `hc<AppType>()`）をそのまま受け取る
+// （NFR-11 / ADR D5）。
 export type ArtworksClient = ApiClient;
 
 /** 作成入力（userId/artistProfileId はサーバー付与なので含めない / SEC-01）。 */
