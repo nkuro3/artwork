@@ -77,10 +77,14 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-/** title: 非空文字列を検証して trim 済みを返す。 */
+/**
+ * title: 文字列を検証して trim 済みを返す（空文字を許容）。
+ * 下書きは空タイトル可のため、ここでは非空チェックをしない。
+ * 「登録（isDraft=false 確定）」時の非空チェックは PATCH ハンドラで行う。
+ */
 function validateTitle(value: unknown): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    badRequest("title is required and must be a non-empty string");
+  if (typeof value !== "string") {
+    badRequest("title must be a string");
   }
   return (value as string).trim();
 }
@@ -118,14 +122,17 @@ function parseCreateBody(raw: unknown): Omit<
   "userId" | "artistProfileId"
 > {
   const body = asRecord(raw);
+  // 下書きは空タイトル可。title 未指定なら空文字として作成する。
   const input: Omit<CreateArtworkInput, "userId" | "artistProfileId"> = {
-    title: validateTitle(body.title),
+    title: body.title === undefined ? "" : validateTitle(body.title),
   };
   if (body.description !== undefined)
     input.description = validateDescription(body.description);
   if (body.status !== undefined) input.status = validateStatus(body.status);
   if (body.isPublic !== undefined)
     input.isPublic = validateBoolean(body.isPublic, "isPublic");
+  if (body.isDraft !== undefined)
+    input.isDraft = validateBoolean(body.isDraft, "isDraft");
   if (body.sortOrder !== undefined)
     input.sortOrder = validateSortOrder(body.sortOrder);
   return input;
@@ -141,6 +148,8 @@ function parseUpdateBody(raw: unknown): UpdateArtworkPatch {
   if (body.status !== undefined) patch.status = validateStatus(body.status);
   if (body.isPublic !== undefined)
     patch.isPublic = validateBoolean(body.isPublic, "isPublic");
+  if (body.isDraft !== undefined)
+    patch.isDraft = validateBoolean(body.isDraft, "isDraft");
   if (body.sortOrder !== undefined)
     patch.sortOrder = validateSortOrder(body.sortOrder);
   return patch;
@@ -232,6 +241,18 @@ export function createArtworksRoutes(injectedDeps?: ArtworksRoutesDeps) {
         const row = await repo.findById(id);
         if (row === null) throw new HTTPException(404, { message: "Not Found" });
         assertOwner(user.id, row);
+
+        // 「登録」= isDraft を false に確定する更新はタイトル必須（02 仕様「下書きモデル」）。
+        // patch 適用後の実効タイトル（patch.title 指定があればそれ、無ければ既存値）が
+        // 空なら 400 で弾く。
+        if (patch.isDraft === false) {
+          const effectiveTitle = (patch.title ?? row.title).trim();
+          if (effectiveTitle === "") {
+            throw new HTTPException(400, {
+              message: "タイトルを入力してください",
+            });
+          }
+        }
 
         const updated = await repo.update(id, patch);
         if (updated === null)

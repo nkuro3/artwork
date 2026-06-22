@@ -10,21 +10,24 @@ import { artworkStatus } from "@artwork/database/schema";
 /**
  * 作品のステータス。`@artwork/database` の `artwork_status` enum と単一ソースで一致させる
  * （drift 防止のためリテラルを再定義せず enum から導出する）。
+ *
+ * 注: `status` は公開条件に**関与しない**（フォーム用に温存）。公開判定は `isDraft` を使う。
  */
 export type ArtworkStatus = (typeof artworkStatus.enumValues)[number];
 
 /** 公開可視判定に必要な最小プロパティ。 */
 export interface ArtworkVisibility {
   isPublic: boolean;
-  status: ArtworkStatus;
+  isDraft: boolean;
 }
 
 /**
- * 公開ポートフォリオに表示してよい作品かを判定する（FR-12）。
- * `is_public === true` かつ `status === 'published'` の場合のみ true。
+ * 公開ポートフォリオに表示してよい作品かを判定する（FR-12 / 02 仕様「下書きモデル」）。
+ * `is_public === true` かつ `is_draft === false` の場合のみ true。
+ * `status` は公開条件に関与しない。
  */
 export function isArtworkPublic(artwork: ArtworkVisibility): boolean {
-  return artwork.isPublic && artwork.status === "published";
+  return artwork.isPublic && artwork.isDraft === false;
 }
 
 /**

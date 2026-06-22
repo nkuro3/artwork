@@ -23,10 +23,23 @@ const thumbStyle: CSSProperties = {
 };
 
 const cardStyle: CSSProperties = {
+  position: "relative",
   display: "flex",
   flexDirection: "column",
   gap: "var(--space-2)",
   padding: "var(--space-4)",
+  border: "1px solid var(--color-border)",
+  borderRadius: "var(--radius-sm)",
+};
+
+// 下書きバッジ（§6.5）。カード右上。トークンのみ・装飾なし。
+const draftBadgeStyle: CSSProperties = {
+  position: "absolute",
+  top: "var(--space-2)",
+  right: "var(--space-2)",
+  padding: "var(--space-1) var(--space-2)",
+  fontSize: "var(--text-xs)",
+  color: "var(--color-text-muted)",
   border: "1px solid var(--color-border)",
   borderRadius: "var(--radius-sm)",
 };
@@ -77,6 +90,7 @@ export default async function ArtworksPage() {
         <ul className="artwork-grid">
           {result.data.map((art) => (
             <li key={art.id} style={cardStyle}>
+              {art.isDraft ? <span style={draftBadgeStyle}>draft</span> : null}
               {art.thumbnailUrl ? (
                 // ワイヤー品質。Cloudflare Images の変換 URL を素の img で出す（§5.4）。
                 <img src={art.thumbnailUrl} alt={art.title} style={thumbStyle} />

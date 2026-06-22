@@ -14,6 +14,11 @@ export interface Artwork {
   description: string | null;
   status: "draft" | "published";
   isPublic: boolean;
+  /**
+   * 下書きフラグ（02 §6.6/6.7）。新規作成時 true。`status`（下書き/公開 enum）とは別概念で、
+   * 公開条件は `isPublic && !isDraft`（status は関与しない）。一覧では「draft」バッジに使う。
+   */
+  isDraft: boolean;
   sortOrder: number;
   /**
    * 先頭画像のサムネ URL（一覧表示用 / B5・02 仕様 §6.5）。画像なしは null。
@@ -36,6 +41,8 @@ export interface CreateArtworkInput {
   description?: string | null;
   status?: "draft" | "published";
   isPublic?: boolean;
+  /** 下書きフラグ（既定 true / §6.6）。下書き作成時は明示する。 */
+  isDraft?: boolean;
   sortOrder?: number;
 }
 
@@ -45,6 +52,8 @@ export interface UpdateArtworkPatch {
   description?: string | null;
   status?: "draft" | "published";
   isPublic?: boolean;
+  /** 下書き確定（登録）= isDraft:false（§6.7）。 */
+  isDraft?: boolean;
   sortOrder?: number;
 }
 
@@ -138,18 +147,24 @@ export async function getArtworkImages(
   }
 }
 
-/** 作品を作成する（FR-05）。title 非空を最小バリデーション。 */
+/**
+ * 作品を作成する（FR-05 / §6.6）。
+ * 下書き作成（isDraft）は title 空を許容する（api が受理。登録は PATCH で確定）。
+ * isDraft 指定がない通常作成は従来どおり title 非空を最小バリデーションする。
+ */
 export async function createArtwork(
   client: ArtworksClient,
   input: CreateArtworkInput,
 ): Promise<Result<Artwork>> {
-  const title = normalizeTitle(input.title);
+  const allowEmptyTitle = input.isDraft === true;
+  const title = allowEmptyTitle ? input.title.trim() : normalizeTitle(input.title);
   if (title === null) return fail("title is required");
 
   const json: CreateArtworkInput = { title };
   if (input.description !== undefined) json.description = input.description;
   if (input.status !== undefined) json.status = input.status;
   if (input.isPublic !== undefined) json.isPublic = input.isPublic;
+  if (input.isDraft !== undefined) json.isDraft = input.isDraft;
   if (input.sortOrder !== undefined) json.sortOrder = input.sortOrder;
 
   try {
@@ -176,6 +191,7 @@ export async function updateArtwork(
   if (patch.description !== undefined) json.description = patch.description;
   if (patch.status !== undefined) json.status = patch.status;
   if (patch.isPublic !== undefined) json.isPublic = patch.isPublic;
+  if (patch.isDraft !== undefined) json.isDraft = patch.isDraft;
   if (patch.sortOrder !== undefined) json.sortOrder = patch.sortOrder;
 
   try {

@@ -9,7 +9,7 @@
  *
  * 検索条件は B7 `buildArtworkSearch` / `buildArtistSearch`（pg_trgm ILIKE）で組み立て、
  * 公開対象のみを返す:
- *   - artwork: status='published' かつ is_public=true。
+ *   - artwork: is_draft=false かつ is_public=true（status は公開条件に関与しない）。
  *   - artist : 公開プロフィール（artist_profile は公開前提のため slug を持つ全件）。
  * 作品には先頭画像（sort_order 昇順の先頭）の r2_key を含める。
  * 可視判定済みの素データを返し、画像 URL 組み立て・DTO 整形はルート層に委ねる（ADR D5）。
@@ -65,7 +65,7 @@ export interface SearchRepository {
  * drizzle 実装。`@artwork/database` の `createDb()` で得た db を渡す（生 neon/drizzle は呼ばない）。
  *
  * - 作品: B7 `buildArtworkSearch`（title/description の ILIKE）に
- *   published+public を AND して検索。先頭画像（sort_order 昇順）の r2_key を相関サブクエリで取得。
+ *   (is_draft=false)+public を AND して検索。先頭画像（sort_order 昇順）の r2_key を相関サブクエリで取得。
  * - 作者: B7 `buildArtistSearch`（display_name の ILIKE）で公開プロフィールを検索。
  */
 export function createSearchRepository(db: Database): SearchRepository {
@@ -98,7 +98,7 @@ export function createSearchRepository(db: Database): SearchRepository {
         )
         .where(
           and(
-            eq(artwork.status, "published"),
+            eq(artwork.isDraft, false),
             eq(artwork.isPublic, true),
             artworkCondition,
           ),

@@ -36,18 +36,20 @@ const PORTFOLIO: PortfolioData = {
       description: "second",
       status: "published",
       isPublic: true,
+      isDraft: false,
       sortOrder: 10,
       images: [
         { id: "img-b1", r2Key: "artworks/b1.jpg", sortOrder: 0 },
       ],
     },
-    // 下書き（除外されるべき）。
+    // 下書き（isDraft=true なので除外されるべき。status は公開条件に関与しない）。
     {
       id: "art-draft",
       title: "Draft",
       description: null,
-      status: "draft",
+      status: "published",
       isPublic: true,
+      isDraft: true,
       sortOrder: 1,
       images: [{ id: "img-d", r2Key: "artworks/d.jpg", sortOrder: 0 }],
     },
@@ -58,6 +60,7 @@ const PORTFOLIO: PortfolioData = {
       description: null,
       status: "published",
       isPublic: false,
+      isDraft: false,
       sortOrder: 2,
       images: [],
     },
@@ -68,6 +71,7 @@ const PORTFOLIO: PortfolioData = {
       description: "first",
       status: "published",
       isPublic: true,
+      isDraft: false,
       sortOrder: 5,
       images: [
         { id: "img-a2", r2Key: "artworks/a2.jpg", sortOrder: 1 },

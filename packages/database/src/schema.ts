@@ -112,6 +112,9 @@ export const artwork = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     status: artworkStatus("status").notNull().default("draft"),
+    // Draft lifecycle (spec 02 「下書きモデル」). New artworks start as drafts;
+    // `登録` flips this to false. Independent of `status` and `isPublic`.
+    isDraft: boolean("is_draft").notNull().default(true),
     isPublic: boolean("is_public").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })

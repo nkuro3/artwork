@@ -83,6 +83,7 @@ function seedArtwork(over: Partial<Artwork> = {}): Artwork {
     description: null,
     status: "draft",
     isPublic: false,
+    isDraft: true,
     sortOrder: 0,
     createdAt: now,
     updatedAt: now,

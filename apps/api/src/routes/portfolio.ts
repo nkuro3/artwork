@@ -98,7 +98,7 @@ export function createPortfolioRoutes(injectedDeps?: PortfolioRoutesDeps) {
 
     const baseUrl = c.env.IMAGE_BASE_URL;
 
-    // B4: 公開（is_public && published）のみ・sort_order 昇順。
+    // B4: 公開（is_public && !is_draft）のみ・sort_order 昇順。
     const visible = filterPublicArtworks(data.artworks);
 
     const body: PublicPortfolioDto = {

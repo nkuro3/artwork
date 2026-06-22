@@ -164,6 +164,14 @@ describe("createArtwork", () => {
     });
   });
 
+  it("isDraft=true を指定すれば json に載せ、空 title も許容する", async () => {
+    const { client, post } = mockClient();
+    const result = await createArtwork(client, { title: "", isDraft: true });
+
+    expect(post).toHaveBeenCalledWith({ json: { title: "", isDraft: true } });
+    expect(result.ok).toBe(true);
+  });
+
   it("title 空はバリデーションエラー（RPC を呼ばない）", async () => {
     const { client, post } = mockClient();
     const result = await createArtwork(client, { title: "   " });
@@ -209,6 +217,17 @@ describe("updateArtwork", () => {
     expect(patch).toHaveBeenCalledWith({
       param: { id: "a1" },
       json: { isPublic: true },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("isDraft=false（登録）を json に載せる", async () => {
+    const { client, patch } = mockClient();
+    const result = await updateArtwork(client, "a1", { isDraft: false });
+
+    expect(patch).toHaveBeenCalledWith({
+      param: { id: "a1" },
+      json: { isDraft: false },
     });
     expect(result.ok).toBe(true);
   });

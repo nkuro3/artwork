@@ -33,6 +33,7 @@ function createMockRepo(seed: Artwork[] = []): ArtworkRepository {
         description: input.description ?? null,
         status: input.status ?? "draft",
         isPublic: input.isPublic ?? false,
+        isDraft: input.isDraft ?? true,
         sortOrder: input.sortOrder ?? 0,
         createdAt: now,
         updatedAt: now,
@@ -151,6 +152,7 @@ function seedArtwork(over: Partial<Artwork> = {}): Artwork {
     description: null,
     status: "draft",
     isPublic: false,
+    isDraft: true,
     sortOrder: 0,
     thumbnailR2Key: null,
     createdAt: now,
@@ -220,22 +222,61 @@ describe("POST /artworks", () => {
     expect(body.description).toBe("desc");
   });
 
-  it("title が空なら 400", async () => {
+  it("既定で isDraft=true（下書きとして作成）", async () => {
+    const app = buildApp(createMockRepo(), OWNER);
+    const res = await app.request("/artworks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "My Art" }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Artwork;
+    expect(body.isDraft).toBe(true);
+  });
+
+  it("isDraft を明示的に false で作成できる", async () => {
+    const app = buildApp(createMockRepo(), OWNER);
+    const res = await app.request("/artworks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "Done", isDraft: false }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Artwork;
+    expect(body.isDraft).toBe(false);
+  });
+
+  it("title が空でも作成できる（下書きは空タイトル可）", async () => {
     const app = buildApp(createMockRepo(), OWNER);
     const res = await app.request("/artworks", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ title: "   " }),
     });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Artwork;
+    expect(body.title).toBe("");
+    expect(body.isDraft).toBe(true);
   });
 
-  it("title 欠落なら 400", async () => {
+  it("title 欠落でも作成できる（下書きは空タイトル可）", async () => {
     const app = buildApp(createMockRepo(), OWNER);
     const res = await app.request("/artworks", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ description: "no title" }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Artwork;
+    expect(body.title).toBe("");
+  });
+
+  it("isDraft が boolean でなければ 400", async () => {
+    const app = buildApp(createMockRepo(), OWNER);
+    const res = await app.request("/artworks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "x", isDraft: "yes" }),
     });
     expect(res.status).toBe(400);
   });
@@ -372,15 +413,128 @@ describe("PATCH /artworks/:id", () => {
     expect(res.status).toBe(400);
   });
 
-  it("title を空文字に更新しようとすると 400", async () => {
-    const repo = createMockRepo([seedArtwork({ id: "art-1", userId: "user-1" })]);
+  it("下書きのまま title を空文字に更新できる（下書きは空タイトル可）", async () => {
+    const repo = createMockRepo([
+      seedArtwork({ id: "art-1", userId: "user-1", isDraft: true, title: "x" }),
+    ]);
     const app = buildApp(repo, OWNER);
     const res = await app.request("/artworks/art-1", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ title: "  " }),
     });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Artwork;
+    expect(body.title).toBe("");
+  });
+
+  it("isDraft を true に更新できる", async () => {
+    const repo = createMockRepo([
+      seedArtwork({ id: "art-1", userId: "user-1", isDraft: false }),
+    ]);
+    const app = buildApp(repo, OWNER);
+    const res = await app.request("/artworks/art-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ isDraft: true }),
+    });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as Artwork).isDraft).toBe(true);
+  });
+
+  it("isDraft=false 化（登録）はタイトルがあれば成功する", async () => {
+    const repo = createMockRepo([
+      seedArtwork({
+        id: "art-1",
+        userId: "user-1",
+        isDraft: true,
+        title: "Has Title",
+      }),
+    ]);
+    const app = buildApp(repo, OWNER);
+    const res = await app.request("/artworks/art-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ isDraft: false }),
+    });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as Artwork).isDraft).toBe(false);
+  });
+
+  it("isDraft=false 化（登録）で実効タイトルが空なら 400", async () => {
+    const repo = createMockRepo([
+      seedArtwork({ id: "art-1", userId: "user-1", isDraft: true, title: "" }),
+    ]);
+    const app = buildApp(repo, OWNER);
+    const res = await app.request("/artworks/art-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ isDraft: false }),
+    });
     expect(res.status).toBe(400);
+    const text = await res.text();
+    expect(text).toContain("タイトルを入力してください");
+    // 登録は確定されない（下書きのまま）。
+    expect((await repo.findById("art-1"))?.isDraft).toBe(true);
+  });
+
+  it("isDraft=false 化（登録）で同 PATCH の title 指定が空なら 400", async () => {
+    const repo = createMockRepo([
+      seedArtwork({
+        id: "art-1",
+        userId: "user-1",
+        isDraft: true,
+        title: "Has Title",
+      }),
+    ]);
+    const app = buildApp(repo, OWNER);
+    const res = await app.request("/artworks/art-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ isDraft: false, title: "   " }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("isDraft=false 化（登録）で同 PATCH の title を埋めれば成功する", async () => {
+    const repo = createMockRepo([
+      seedArtwork({ id: "art-1", userId: "user-1", isDraft: true, title: "" }),
+    ]);
+    const app = buildApp(repo, OWNER);
+    const res = await app.request("/artworks/art-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ isDraft: false, title: "Now Named" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Artwork;
+    expect(body.isDraft).toBe(false);
+    expect(body.title).toBe("Now Named");
+  });
+});
+
+describe("GET /artworks — DTO に isDraft が載る", () => {
+  it("一覧の各項目に isDraft が含まれる", async () => {
+    const repo = createMockRepo([
+      seedArtwork({ id: "art-1", userId: "user-1", isDraft: true }),
+      seedArtwork({ id: "art-2", userId: "user-1", isDraft: false }),
+    ]);
+    const app = buildApp(repo, OWNER);
+    const res = await app.request("/artworks");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string; isDraft: boolean }[];
+    expect(body.find((a) => a.id === "art-1")?.isDraft).toBe(true);
+    expect(body.find((a) => a.id === "art-2")?.isDraft).toBe(false);
+  });
+
+  it("単体取得に isDraft が含まれる", async () => {
+    const repo = createMockRepo([
+      seedArtwork({ id: "art-1", userId: "user-1", isDraft: true }),
+    ]);
+    const app = buildApp(repo, OWNER);
+    const res = await app.request("/artworks/art-1");
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as Artwork).isDraft).toBe(true);
   });
 });
 

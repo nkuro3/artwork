@@ -148,6 +148,7 @@ describe("artwork table", () => {
         "created_at",
         "description",
         "id",
+        "is_draft",
         "is_public",
         "sort_order",
         "status",
@@ -197,6 +198,13 @@ describe("artwork table", () => {
     const cols = getTableColumns(schema.artwork);
     expect(cols.isPublic.notNull).toBe(true);
     expect(cols.isPublic.default).toBe(false);
+  });
+
+  it("is_draft is a boolean default true, not null (new artworks are drafts)", () => {
+    const cols = getTableColumns(schema.artwork);
+    expect(cols.isDraft.notNull).toBe(true);
+    expect(cols.isDraft.default).toBe(true);
+    expect(cols.isDraft.name).toBe("is_draft");
   });
 
   it("sort_order is an integer default 0, not null", () => {

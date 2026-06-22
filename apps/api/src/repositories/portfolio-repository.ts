@@ -40,7 +40,8 @@ export interface PortfolioImage {
 
 /**
  * ポートフォリオに含まれる作品（可視フィルタ前の全件）。
- * 可視判定に必要な `isPublic` / `status` を保持する（フィルタはルートで B4 を適用）。
+ * 可視判定に必要な `isPublic` / `isDraft` を保持する（フィルタはルートで B4 を適用）。
+ * `status` はフォーム用に温存（公開条件には関与しない）。
  */
 export interface PortfolioArtwork {
   id: string;
@@ -48,6 +49,7 @@ export interface PortfolioArtwork {
   description: string | null;
   status: ArtworkStatus;
   isPublic: boolean;
+  isDraft: boolean;
   sortOrder: number;
   images: PortfolioImage[];
 }
@@ -97,6 +99,7 @@ export function createPortfolioRepository(db: Database): PortfolioRepository {
           description: artwork.description,
           status: artwork.status,
           isPublic: artwork.isPublic,
+          isDraft: artwork.isDraft,
           artworkSortOrder: artwork.sortOrder,
           imageId: artworkImage.id,
           imageR2Key: artworkImage.r2Key,
@@ -117,6 +120,7 @@ export function createPortfolioRepository(db: Database): PortfolioRepository {
             description: row.description,
             status: row.status,
             isPublic: row.isPublic,
+            isDraft: row.isDraft,
             sortOrder: row.artworkSortOrder,
             images: [],
           };

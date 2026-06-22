@@ -2,21 +2,26 @@
 
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState, type FormEvent } from "react";
-import { createArtworkAction, updateArtworkAction } from "./actions";
+import { useCallback, useRef, useState } from "react";
+import { updateArtworkAction } from "./actions";
+import {
+  autosavePatch,
+  validateRegisterTitle,
+  type AutosaveField,
+  type AutosaveValue,
+} from "../../lib/artwork-edit";
 import {
   ImageUploader,
   type ImageUploaderHandle,
   type InitialImage,
 } from "./image-uploader";
 
-// B4 作品作成/編集フォーム（FR-06 / FR-08 / FR-09 / §6.6 / §6.7）。
-// - メタ（title/description/status/isPublic）は Server Action 経由で api に保存（ADR D6/D7）。
-// - 画像は ImageUploader が担当：選択時にブラウザから署名 URL → R2 直 PUT → メタ作成（lib/upload は不変）。
-//   サムネ・削除・並び替え（↑/↓）をその場で扱い、削除/並び替えは既存 API（C3）に結線する。
-// 画像アップロードには artwork id が要るため、新規作成時は初回アップロードで作品を遅延作成する
-// （ensureArtworkId）。送信時はメタを最新化し、最後に並び順を確定（commitOrder）する。
-// 純ロジック（title 検証 / 並び替え index）は lib 側でテスト。レンダリングは /verify。
+// B4 作品編集フォーム（§6.7）。下書きフローに集約：artworkId は常に存在する前提。
+// - 自動保存: タイトル/説明は blur 時、状態(select)/公開可否(checkbox)は change 時に、
+//   変更フィールドのみ PATCH（updateArtworkAction）で随時保存する。保存中/失敗は控えめに表示。
+// - プライマリボタン: 下書き(isDraft=true)=「登録」（実効タイトル必須→ PATCH isDraft:false）、
+//   登録済み(isDraft=false)=「保存」（最新反映）。両者とも押下時に画像順を確定（commitOrder）。
+// 純ロジック（パッチ構築 / 登録時タイトル必須）は lib/artwork-edit でテスト。結線は型/ビルドで担保。
 
 export interface ArtworkFormDefaults {
   title?: string;
@@ -26,10 +31,12 @@ export interface ArtworkFormDefaults {
 }
 
 export interface ArtworkFormProps {
-  /** 編集対象の id。未指定なら新規作成。 */
-  artworkId?: string;
+  /** 編集対象の id（下書きフローでは常に存在）。 */
+  artworkId: string;
+  /** 下書きか（true=「登録」ボタン / false=「保存」ボタン）。 */
+  isDraft: boolean;
   defaults?: ArtworkFormDefaults;
-  /** 既存画像（編集時のプリフィル / B4b・§6.7）。 */
+  /** 既存画像（編集時のプリフィル / §6.7）。 */
   initialImages?: InitialImage[];
 }
 
@@ -61,6 +68,12 @@ const errorTextStyle: CSSProperties = {
   color: "var(--color-error)",
 };
 
+const mutedStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "var(--text-sm)",
+  color: "var(--color-text-muted)",
+};
+
 const actionsStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -70,78 +83,77 @@ const actionsStyle: CSSProperties = {
 
 export function ArtworkForm({
   artworkId,
+  isDraft,
   defaults,
   initialImages,
 }: ArtworkFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const formRef = useRef<HTMLFormElement>(null);
-  // 新規作成時に確定した artwork id（初回アップロードで作る → 送信時は update）。
-  const createdIdRef = useRef<string | undefined>(undefined);
+  // 自動保存で参照する現在のタイトル（登録時の必須チェックに使う）。
+  const titleRef = useRef<string>(defaults?.title ?? "");
   const uploaderRef = useRef<ImageUploaderHandle | null>(null);
 
-  /** 現在のフォーム値から FormData を作る（送信用と遅延作成用で共用）。 */
-  const currentFormData = useCallback((): FormData | null => {
-    const el = formRef.current;
-    return el ? new FormData(el) : null;
-  }, []);
+  // 画像アップローダ用：id は常に存在するのでそのまま返す（遅延作成は不要）。
+  const ensureArtworkId = useCallback(
+    async (): Promise<{ ok: true; id: string }> => ({ ok: true, id: artworkId }),
+    [artworkId],
+  );
 
-  /**
-   * アップロード先の artwork id を確定する。
-   * - 編集: 既存 id をそのまま返す。
-   * - 新規: まだ作っていなければ現在のフォーム値で作成し、id を採番して返す。
-   * title 空なら作成せずエラーにし、フィールドエラーも出す。
-   */
-  const ensureArtworkId = useCallback(async (): Promise<
-    { ok: true; id: string } | { ok: false; error: string }
-  > => {
-    if (artworkId) return { ok: true, id: artworkId };
-    if (createdIdRef.current) return { ok: true, id: createdIdRef.current };
+  /** 1 フィールドの変更を自動保存する（§6.7）。控えめに保存中/失敗を表示。 */
+  const autosave = useCallback(
+    async <F extends AutosaveField>(field: F, value: AutosaveValue<F>) => {
+      setSaveError(null);
+      setSaving(true);
+      const result = await updateArtworkAction(
+        artworkId,
+        autosavePatch(field, value),
+      );
+      setSaving(false);
+      if (!result.ok) setSaveError("保存に失敗しました");
+    },
+    [artworkId],
+  );
 
-    const form = currentFormData();
-    if (!form) return { ok: false, error: "フォームを初期化できませんでした" };
-    if (String(form.get("title") ?? "").trim() === "") {
-      setTitleError("タイトルを入力してください");
-      return { ok: false, error: "タイトルを入力してください" };
-    }
-
-    const created = await createArtworkAction(form);
-    if (!created.ok) return { ok: false, error: created.error };
-    createdIdRef.current = created.data.id;
-    return { ok: true, id: created.data.id };
-  }, [artworkId, currentFormData]);
-
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  /** プライマリボタン（下書き=登録 / 登録済み=保存）。 */
+  async function onPrimary() {
     setError(null);
     setTitleError(null);
 
-    const form = new FormData(e.currentTarget);
-    if (String(form.get("title") ?? "").trim() === "") {
-      setTitleError("タイトルを入力してください");
-      return;
+    // 登録（isDraft=false 化）時のみ実効タイトル必須（§6.7）。
+    if (isDraft) {
+      const titleErr = validateRegisterTitle(titleRef.current);
+      if (titleErr) {
+        setTitleError(titleErr);
+        return;
+      }
     }
 
     setPending(true);
 
-    // 1) メタを保存。新規で画像未アップロード=未作成なら作成、作成済み/編集なら更新。
-    const existingId = artworkId ?? createdIdRef.current;
-    if (existingId) {
-      const updated = await updateArtworkAction(existingId, form);
-      if (!updated.ok) return finishWithError(updated.error);
-    } else {
-      const created = await createArtworkAction(form);
-      if (!created.ok) return finishWithError(created.error);
-      createdIdRef.current = created.data.id;
+    // 最新メタを反映。下書きは登録（isDraft:false）、登録済みは現タイトルの保存。
+    const patch = isDraft
+      ? { title: titleRef.current.trim(), isDraft: false }
+      : { title: titleRef.current.trim() };
+    const updated = await updateArtworkAction(artworkId, patch);
+    if (!updated.ok) {
+      setError(updated.error);
+      setPending(false);
+      return;
     }
 
-    // 2) 並び順を確定（画像が複数で順序変更があった場合のみ PATCH / C3）。
+    // 画像順を確定（複数で順序変更があった場合のみ PATCH / C3）。
     if (uploaderRef.current) {
       const ordered = await uploaderRef.current.commitOrder();
-      if (!ordered.ok) return finishWithError(ordered.error);
+      if (!ordered.ok) {
+        setError(ordered.error);
+        setPending(false);
+        return;
+      }
     }
 
     setPending(false);
@@ -149,16 +161,18 @@ export function ArtworkForm({
     router.refresh();
   }
 
-  function finishWithError(message: string) {
-    setError(message);
-    setPending(false);
-  }
-
   const titleErrorId = titleError ? "title-error" : undefined;
 
   return (
     <div style={containerStyle}>
-      <form ref={formRef} onSubmit={onSubmit} noValidate style={formStyle}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void onPrimary();
+        }}
+        noValidate
+        style={formStyle}
+      >
         {error ? (
           <p role="alert" style={errorTextStyle}>
             {error}
@@ -166,7 +180,7 @@ export function ArtworkForm({
         ) : null}
 
         <div style={fieldStyle}>
-          <label htmlFor="title">タイトル（必須）</label>
+          <label htmlFor="title">タイトル{isDraft ? "" : "（必須）"}</label>
           <input
             id="title"
             type="text"
@@ -174,7 +188,11 @@ export function ArtworkForm({
             defaultValue={defaults?.title ?? ""}
             aria-invalid={titleError ? true : undefined}
             aria-describedby={titleErrorId}
-            onChange={() => titleError && setTitleError(null)}
+            onChange={(e) => {
+              titleRef.current = e.currentTarget.value;
+              if (titleError) setTitleError(null);
+            }}
+            onBlur={(e) => void autosave("title", e.currentTarget.value)}
           />
           {titleError ? (
             <p id={titleErrorId} role="alert" style={errorTextStyle}>
@@ -190,6 +208,7 @@ export function ArtworkForm({
             name="description"
             rows={4}
             defaultValue={defaults?.description ?? ""}
+            onBlur={(e) => void autosave("description", e.currentTarget.value)}
           />
         </div>
 
@@ -199,6 +218,12 @@ export function ArtworkForm({
             id="status"
             name="status"
             defaultValue={defaults?.status ?? "draft"}
+            onChange={(e) =>
+              void autosave(
+                "status",
+                e.currentTarget.value as AutosaveValue<"status">,
+              )
+            }
           >
             <option value="draft">下書き</option>
             <option value="published">公開</option>
@@ -211,12 +236,13 @@ export function ArtworkForm({
             type="checkbox"
             name="isPublic"
             defaultChecked={defaults?.isPublic ?? false}
+            onChange={(e) => void autosave("isPublic", e.currentTarget.checked)}
           />
           <label htmlFor="isPublic">ポートフォリオに掲載する</label>
         </div>
 
         <ImageUploader
-          {...(artworkId ? { artworkId } : {})}
+          artworkId={artworkId}
           {...(initialImages ? { initialImages } : {})}
           {...(defaults?.title ? { title: defaults.title } : {})}
           ensureArtworkId={ensureArtworkId}
@@ -225,9 +251,20 @@ export function ArtworkForm({
           }}
         />
 
+        {saving ? (
+          <p role="status" style={mutedStyle} aria-live="polite">
+            保存中…
+          </p>
+        ) : null}
+        {saveError ? (
+          <p role="alert" style={errorTextStyle}>
+            {saveError}
+          </p>
+        ) : null}
+
         <div style={actionsStyle}>
           <button type="submit" disabled={pending}>
-            {artworkId ? "保存" : "作成"}
+            {isDraft ? "登録" : "保存"}
           </button>
           <a href="/artworks">一覧へ戻る</a>
         </div>
