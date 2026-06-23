@@ -5,6 +5,9 @@
 
 import type { ApiClient } from "./api";
 
+/** 作品の状態（ADR D12）。公開＝`published`。`draft`/`archived` は非公開。 */
+export type ArtworkStatus = "draft" | "published" | "archived";
+
 /** 作品の API 表現（RPC レスポンスを web で扱う最小集合）。日付は JSON 上 string。 */
 export interface Artwork {
   id: string;
@@ -12,34 +15,52 @@ export interface Artwork {
   artistProfileId: string;
   title: string;
   description: string | null;
-  status: "draft" | "published";
-  isPublic: boolean;
+  /**
+   * 作品のライフサイクル（ADR D12 / 02「作品の状態モデル」）。
+   * `published` = 公開（検索・公開ページに出る）。`draft`/`archived` は非公開。
+   */
+  status: ArtworkStatus;
   sortOrder: number;
+  /**
+   * 先頭画像のサムネ URL（一覧表示用 / B5・02 仕様 §6.5）。画像なしは null。
+   * 一覧（`listArtworks`）でのみ api が付与する。単体取得（`getArtwork` 等）の
+   * レスポンスには含まれないため任意（API の DTO 差を web 型に反映 / ADR D5）。
+   */
+  thumbnailUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-// C5b: `AppType` に /artworks のルート型が載ったので、コアは型付き RPC クライアント
-// （`ApiClient` = `hc<AppType>()`）をそのまま受け取る。以前の構造的部分集合インターフェース
-// は cast 前提で型安全でなかったため廃止し、hc 由来の精密な型に揃えた（NFR-11 / ADR D5）。
+// コアは型付き RPC クライアント（`ApiClient` = `hc<AppType>()`）をそのまま受け取る
+// （NFR-11 / ADR D5）。
 export type ArtworksClient = ApiClient;
 
 /** 作成入力（userId/artistProfileId はサーバー付与なので含めない / SEC-01）。 */
 export interface CreateArtworkInput {
+  /** タイトル（作成時は空可。既定 status=draft / ADR D12）。 */
   title: string;
   description?: string | null;
-  status?: "draft" | "published";
-  isPublic?: boolean;
+  status?: ArtworkStatus;
   sortOrder?: number;
 }
 
-/** 更新パッチ（部分更新）。 */
+/** 更新パッチ（部分更新 / FR-08）。title/description/status を部分更新する。 */
 export interface UpdateArtworkPatch {
   title?: string;
   description?: string | null;
-  status?: "draft" | "published";
-  isPublic?: boolean;
+  /** 状態変更。`published` にするのは実効タイトル必須（api が最終判定 / ADR D12）。 */
+  status?: ArtworkStatus;
   sortOrder?: number;
+}
+
+/**
+ * 作品に紐づく画像の web 表現（編集プリフィル用 / B4b・02 仕様 §6.7）。
+ * api の認証付き `GET /artworks/:id/images` の DTO に対応（sort_order 昇順）。
+ */
+export interface ArtworkImage {
+  id: string;
+  thumbnailUrl: string;
+  sortOrder: number;
 }
 
 /** 正規化済みの結果。成功は data、失敗は人間可読な error。 */
@@ -73,6 +94,11 @@ function normalizeTitle(title: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
+/** create 用 title 正規化。トリムするが空も許容する（既定 draft / ADR D12）。 */
+function normalizeCreateTitle(title: string): string {
+  return title.trim();
+}
+
 /** 自分の作品一覧を取得する（FR-05）。 */
 export async function listArtworks(
   client: ArtworksClient,
@@ -101,18 +127,39 @@ export async function getArtwork(
   }
 }
 
-/** 作品を作成する（FR-05）。title 非空を最小バリデーション。 */
+/**
+ * 自分の作品の画像一覧を取得する（B4b / 02 §6.7 編集プリフィル）。
+ * 所有者検証は api 側。sortOrder 昇順に正規化して返す（api も昇順だが web でも保証）。
+ */
+export async function getArtworkImages(
+  client: ArtworksClient,
+  artworkId: string,
+): Promise<Result<ArtworkImage[]>> {
+  try {
+    const res = await client.api.artworks[":id"].images.$get({
+      param: { id: artworkId },
+    });
+    if (!res.ok) return fail(await errorFrom(res));
+    const data = (await res.json()) as ArtworkImage[];
+    const sorted = [...data].sort((a, b) => a.sortOrder - b.sortOrder);
+    return ok(sorted);
+  } catch (e) {
+    return fail(messageOf(e));
+  }
+}
+
+/**
+ * 作品を作成する（FR-05 / §6.6）。
+ * 既定 status=draft で作成し、title は空を許容する（api が受理 / ADR D12）。
+ * 公開（published）への確定はその後の PATCH で行い、その時のみタイトル必須となる。
+ */
 export async function createArtwork(
   client: ArtworksClient,
   input: CreateArtworkInput,
 ): Promise<Result<Artwork>> {
-  const title = normalizeTitle(input.title);
-  if (title === null) return fail("title is required");
-
-  const json: CreateArtworkInput = { title };
+  const json: CreateArtworkInput = { title: normalizeCreateTitle(input.title) };
   if (input.description !== undefined) json.description = input.description;
   if (input.status !== undefined) json.status = input.status;
-  if (input.isPublic !== undefined) json.isPublic = input.isPublic;
   if (input.sortOrder !== undefined) json.sortOrder = input.sortOrder;
 
   try {
@@ -138,7 +185,6 @@ export async function updateArtwork(
   }
   if (patch.description !== undefined) json.description = patch.description;
   if (patch.status !== undefined) json.status = patch.status;
-  if (patch.isPublic !== undefined) json.isPublic = patch.isPublic;
   if (patch.sortOrder !== undefined) json.sortOrder = patch.sortOrder;
 
   try {

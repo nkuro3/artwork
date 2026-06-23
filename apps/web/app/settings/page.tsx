@@ -4,6 +4,7 @@ import { createApiClient } from "../../lib/api";
 import { getProfile } from "../../lib/profile";
 import { getSession } from "../../lib/session";
 import { SettingsForm } from "./settings-form";
+import { ProfileSlugLink } from "../../components/profile-slug-link";
 
 // D4 設定（FR-03 プロフィール / slug / 公開設定）。要ログイン領域の RSC。受信 Cookie を
 // api に転送して現在のプロフィールを取得し（無ければ api 側で lazy init / FR-03）、
@@ -25,29 +26,34 @@ export default async function SettingsPage() {
 
   if (!result.ok) {
     return (
-      <main>
+      <>
         <h1>設定</h1>
         <p role="alert">プロフィールの取得に失敗しました: {result.error}</p>
-      </main>
+      </>
     );
   }
 
   const profile = result.data;
 
   return (
-    <main>
+    <>
       <h1>設定</h1>
       <SettingsForm
         defaults={{
           displayName: profile.displayName,
           slug: profile.slug,
           bio: profile.bio ?? "",
-          isPublic: profile.isPublic,
         }}
       />
       <p>
+        <a href="/portfolio/edit">ポートフォリオ編集</a>
+      </p>
+      <p>
+        あなたのページ: <ProfileSlugLink slug={profile.slug} />
+      </p>
+      <p>
         <a href="/artworks">作品一覧へ</a>
       </p>
-    </main>
+    </>
   );
 }

@@ -1,21 +1,27 @@
 import { redirect } from "next/navigation";
 import { getSession } from "../../../lib/session";
-import { ArtworkForm } from "../artwork-form";
+import { createDraftArtworkAction } from "../actions";
 
-// D3 作品作成（FR-05 / FR-06）。要ログイン領域。薄い RSC でセッションを確認し、
-// 入力は ArtworkForm（クライアント）に委譲する。レンダリングは /verify で確認。
+// D3 作品作成（§6.6 / ADR D12）。要ログイン領域。フォームは持たず、アクセス時に下書き
+// （status=draft・title 空）を 1 件作成し、編集画面へリダイレクトする（編集に集約）。
+// 新規作成は常に新しい下書きを作る。作成失敗時はエラーを表示し、一覧へ戻す導線を出す。
+
+export const dynamic = "force-dynamic";
 
 export default async function NewArtworkPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const created = await createDraftArtworkAction();
+  if (created.ok) redirect(`/artworks/edit/${created.data.id}`);
+
   return (
-    <main>
+    <>
       <h1>作品を作成</h1>
-      <ArtworkForm />
+      <p role="alert">下書きの作成に失敗しました: {created.error}</p>
       <p>
         <a href="/artworks">一覧へ戻る</a>
       </p>
-    </main>
+    </>
   );
 }

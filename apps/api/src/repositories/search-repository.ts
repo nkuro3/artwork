@@ -9,7 +9,7 @@
  *
  * 検索条件は B7 `buildArtworkSearch` / `buildArtistSearch`（pg_trgm ILIKE）で組み立て、
  * 公開対象のみを返す:
- *   - artwork: status='published' かつ is_public=true。
+ *   - artwork: status='published'（公開 / ADR D12）。draft / archived は対象外。
  *   - artist : 公開プロフィール（artist_profile は公開前提のため slug を持つ全件）。
  * 作品には先頭画像（sort_order 昇順の先頭）の r2_key を含める。
  * 可視判定済みの素データを返し、画像 URL 組み立て・DTO 整形はルート層に委ねる（ADR D5）。
@@ -36,6 +36,8 @@ export interface SearchArtworkRow {
   id: string;
   title: string;
   slug: string | null;
+  /** 作者の公開 slug（artist_profile.slug を join して取得）。公開作品詳細 URL 用。 */
+  artistSlug: string;
   r2Key: string | null;
 }
 
@@ -63,7 +65,7 @@ export interface SearchRepository {
  * drizzle 実装。`@artwork/database` の `createDb()` で得た db を渡す（生 neon/drizzle は呼ばない）。
  *
  * - 作品: B7 `buildArtworkSearch`（title/description の ILIKE）に
- *   published+public を AND して検索。先頭画像（sort_order 昇順）の r2_key を相関サブクエリで取得。
+ *   status='published' を AND して検索。先頭画像（sort_order 昇順）の r2_key を相関サブクエリで取得。
  * - 作者: B7 `buildArtistSearch`（display_name の ILIKE）で公開プロフィールを検索。
  */
 export function createSearchRepository(db: Database): SearchRepository {
@@ -85,16 +87,16 @@ export function createSearchRepository(db: Database): SearchRepository {
         .select({
           id: artwork.id,
           title: artwork.title,
+          // 公開作品詳細 URL 用に作者の slug を join して取得。
+          artistSlug: artistProfile.slug,
           r2Key: firstImageKey,
         })
         .from(artwork)
-        .where(
-          and(
-            eq(artwork.status, "published"),
-            eq(artwork.isPublic, true),
-            artworkCondition,
-          ),
+        .innerJoin(
+          artistProfile,
+          eq(artwork.artistProfileId, artistProfile.id),
         )
+        .where(and(eq(artwork.status, "published"), artworkCondition))
         .orderBy(asc(artwork.sortOrder));
 
       const artistRows = await db
@@ -112,6 +114,7 @@ export function createSearchRepository(db: Database): SearchRepository {
           title: row.title,
           // 現スキーマに作品 slug は無いため常に null（型は将来用に確保）。
           slug: null,
+          artistSlug: row.artistSlug,
           r2Key: row.r2Key,
         })),
         artists: artistRows.map((row) => ({

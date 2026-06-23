@@ -16,6 +16,7 @@ import {
   type Result,
   type UpdateArtworkPatch,
 } from "../../lib/artworks";
+import { draftCreateInput } from "../../lib/artwork-edit";
 import { portfolioTag } from "../../lib/portfolio";
 import { getProfile } from "../../lib/profile";
 
@@ -59,24 +60,10 @@ function readCreateInput(form: FormData): CreateArtworkInput {
     input.description = description.trim() === "" ? null : description;
   }
   const status = form.get("status");
-  if (status === "draft" || status === "published") input.status = status;
-  input.isPublic = form.get("isPublic") === "on" || form.get("isPublic") === "true";
-  return input;
-}
-
-/** FormData から更新パッチを組む（送られたフィールドのみ）。 */
-function readUpdatePatch(form: FormData): UpdateArtworkPatch {
-  const patch: UpdateArtworkPatch = {};
-  const title = form.get("title");
-  if (typeof title === "string") patch.title = title;
-  const description = form.get("description");
-  if (typeof description === "string") {
-    patch.description = description.trim() === "" ? null : description;
+  if (status === "draft" || status === "published" || status === "archived") {
+    input.status = status;
   }
-  const status = form.get("status");
-  if (status === "draft" || status === "published") patch.status = status;
-  patch.isPublic = form.get("isPublic") === "on" || form.get("isPublic") === "true";
-  return patch;
+  return input;
 }
 
 export async function createArtworkAction(
@@ -93,12 +80,33 @@ export async function createArtworkAction(
     : { ok: false, error: result.error };
 }
 
+/**
+ * 新規下書きを 1 件作成する（§6.6 / ADR D12）。title 空・status=draft。
+ * `/artworks/new` の RSC から呼び、作成した id へ遷移する。
+ */
+export async function createDraftArtworkAction(): Promise<
+  Result<{ id: string }>
+> {
+  // 注: この関数は `/artworks/new` の RSC レンダー中に呼ばれるため、
+  // ここで revalidatePath を呼んではいけない（Next がレンダー中の再検証を禁止）。
+  // 直後に編集画面へ遷移し、一覧は次回アクセス時に再取得されるため不要。
+  const client = await clientFromCookies();
+  const result = await createArtwork(client, draftCreateInput());
+  return result.ok
+    ? { ok: true, data: { id: result.data.id } }
+    : { ok: false, error: result.error };
+}
+
+/**
+ * 作品を部分更新する（§6.7 自動保存）。
+ * フォームは autosavePatch で組んだパッチ（title/description/status）を直接渡す。
+ */
 export async function updateArtworkAction(
   id: string,
-  form: FormData,
+  patch: UpdateArtworkPatch,
 ): Promise<Result<{ id: string }>> {
   const client = await clientFromCookies();
-  const result = await updateArtwork(client, id, readUpdatePatch(form));
+  const result = await updateArtwork(client, id, patch);
   if (result.ok) {
     revalidatePath("/artworks");
     revalidatePath(`/artworks/edit/${id}`);

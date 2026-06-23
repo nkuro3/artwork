@@ -8,6 +8,8 @@ import { createPortfolioRoutes } from "./portfolio";
 
 // C4 公開ポートフォリオルート（FR-11,12,13,15 / NFR-06 未認証読み取り）。
 // portfolioRepo は in-memory モック。IMAGE_BASE_URL は env 注入。DB 非依存。
+// 公開モデル（ADR D12 / §6.10）: published かつ portfolio_item に入る作品を position 昇順。
+// リポジトリが「公開・掲載・順序」を解決済みで返す前提（route は整形のみ）。
 
 const IMAGE_BASE_URL = "https://cdn.example.com";
 
@@ -26,53 +28,28 @@ function mockRepo(bySlug: Record<string, PortfolioData>): PortfolioRepository {
   };
 }
 
+// repo は掲載済み・published・position 昇順に解決済みで返す。
 const PORTFOLIO: PortfolioData = {
   profile: { slug: "alice", displayName: "Alice", bio: "painter" },
   artworks: [
-    // 公開だが sortOrder が大きい（後に来るべき）。
-    {
-      id: "art-b",
-      title: "B",
-      description: "second",
-      status: "published",
-      isPublic: true,
-      sortOrder: 10,
-      images: [
-        { id: "img-b1", r2Key: "artworks/b1.jpg", sortOrder: 0 },
-      ],
-    },
-    // 下書き（除外されるべき）。
-    {
-      id: "art-draft",
-      title: "Draft",
-      description: null,
-      status: "draft",
-      isPublic: true,
-      sortOrder: 1,
-      images: [{ id: "img-d", r2Key: "artworks/d.jpg", sortOrder: 0 }],
-    },
-    // 非公開（除外されるべき）。
-    {
-      id: "art-private",
-      title: "Private",
-      description: null,
-      status: "published",
-      isPublic: false,
-      sortOrder: 2,
-      images: [],
-    },
-    // 公開で sortOrder が小さい（先頭に来るべき）。画像は逆順 sortOrder。
     {
       id: "art-a",
       title: "A",
       description: "first",
       status: "published",
-      isPublic: true,
-      sortOrder: 5,
+      position: 0,
       images: [
         { id: "img-a2", r2Key: "artworks/a2.jpg", sortOrder: 1 },
         { id: "img-a1", r2Key: "artworks/a1.jpg", sortOrder: 0 },
       ],
+    },
+    {
+      id: "art-b",
+      title: "B",
+      description: "second",
+      status: "published",
+      position: 1,
+      images: [{ id: "img-b1", r2Key: "artworks/b1.jpg", sortOrder: 0 }],
     },
   ],
 };
@@ -91,10 +68,9 @@ describe("GET /portfolio/:slug", () => {
     });
   });
 
-  it("excludes draft/non-public artworks and orders by sort_order asc", async () => {
+  it("returns the portfolio artworks in the repository order (position asc)", async () => {
     const res = await request(mockRepo({ alice: PORTFOLIO }), "/alice");
     const body = (await res.json()) as { artworks: { id: string }[] };
-    // 公開 published のみ（art-a, art-b）、sort_order 昇順（art-a=5, art-b=10）。
     expect(body.artworks.map((a) => a.id)).toEqual(["art-a", "art-b"]);
   });
 
@@ -122,6 +98,14 @@ describe("GET /portfolio/:slug", () => {
     expect(first?.largeUrl).toContain("artworks/a1.jpg");
     // a2 が 2 番目。
     expect(artA?.images[1]?.thumbnailUrl).toContain("artworks/a2.jpg");
+  });
+
+  it("does not leak r2Key into the public DTO", async () => {
+    const res = await request(mockRepo({ alice: PORTFOLIO }), "/alice");
+    const body = (await res.json()) as {
+      artworks: { images: Record<string, unknown>[] }[];
+    };
+    expect(body.artworks[0]?.images[0]).not.toHaveProperty("r2Key");
   });
 
   it("returns 404 for an unknown slug", async () => {

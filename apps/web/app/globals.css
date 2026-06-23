@@ -1,0 +1,249 @@
+/*
+ * デザイン基盤トークン（仕様 02 §4）
+ * ワイヤーフレーム品質。機能色のみ・装飾は足さない。
+ * 実装手段は素の CSS（Tailwind 等は導入しない）。
+ *
+ * LINE Seed JP: 公開 CDN の安定配信が無いため、font-family の先頭に
+ * "LINE Seed JP" を置くだけにし、system フォールバックで進める。
+ * 資産は後追いで self-host（@font-face）に差し替え可能。
+ */
+
+:root {
+  /* タイポグラフィ：フォント */
+  --font-sans: "LINE Seed JP", system-ui, -apple-system, "Hiragino Sans",
+    "Noto Sans JP", sans-serif;
+
+  /* タイポグラフィ：サイズスケール（§4） */
+  --text-xs: 13px; /* 補助・キャプション */
+  --text-sm: 15px; /* メタ情報（日時・状態ラベル） */
+  --text-base: 18px; /* 本文（既定） */
+  --text-lg: 20px; /* 強調本文・小見出し */
+  --text-xl: 24px; /* セクション見出し */
+  --text-2xl: 28px; /* サブページタイトル */
+  --text-3xl: 34px; /* ページタイトル */
+
+  /* タイポグラフィ：行送り・字間（全体共通） */
+  --leading: 1.7;
+  --tracking: 0.02em;
+
+  /* タイポグラフィ：ウェイト */
+  --weight-normal: 400; /* 本文 */
+  --weight-bold: 600; /* 強調・見出し */
+
+  /* 余白（8px グリッド・§4） */
+  --space-1: 4px; /* アイコン-文字間など微調整 */
+  --space-2: 8px; /* 要素内の小間隔 */
+  --space-3: 12px; /* フォーム行内 */
+  --space-4: 16px; /* 要素間の標準 */
+  --space-6: 24px; /* 小ブロック間 */
+  --space-8: 32px; /* セクション間 */
+  --space-12: 48px; /* ページ上下の余白 */
+
+  /* 機能色（最小・無彩 + 機能アクセント・§4） */
+  --color-text: #1a1a1a; /* 本文・見出し */
+  --color-text-muted: #6b7280; /* 補助・メタ */
+  --color-border: #d1d5db; /* 罫線・カード境界・入力枠 */
+  --color-bg: #ffffff; /* 背景 */
+  --color-link: #1d4ed8; /* リンク（hover で下線） */
+  --color-error: #dc2626; /* エラー文・必須未入力・危険操作 */
+  --color-focus: #1d4ed8; /* フォーカスリング */
+  --color-disabled-bg: #f3f4f6; /* 無効要素の背景 */
+  --color-disabled-text: #9ca3af; /* 無効要素の文字 */
+
+  /* 角丸（§4） */
+  --radius-sm: 4px; /* 入力・ボタン・カード（大きい角丸は使わない） */
+
+  /* レイアウト（§4） */
+  --container: 960px; /* コンテナ最大幅（標準） */
+  --container-form: 480px; /* コンテナ最大幅（フォーム系） */
+  /* ブレークポイント md = 768px（@media (min-width: 768px) で使用） */
+}
+
+/* ベーススタイル ----------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading);
+  letter-spacing: var(--tracking);
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* 見出し（§4 サイズスケール・h1→h3） */
+h1,
+h2,
+h3 {
+  font-weight: var(--weight-bold);
+  line-height: var(--leading);
+  margin: 0 0 var(--space-4);
+}
+
+h1 {
+  font-size: var(--text-3xl); /* ページタイトル */
+}
+
+h2 {
+  font-size: var(--text-2xl); /* サブページタイトル */
+}
+
+h3 {
+  font-size: var(--text-xl); /* セクション見出し */
+}
+
+/* リンク：color-link / hover で下線 */
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* フォーム要素：高さ ~40px・padding・border・radius（§4 コンポーネント寸法） */
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: var(--text-base);
+  line-height: var(--leading);
+  letter-spacing: var(--tracking);
+  color: var(--color-text);
+  background: var(--color-bg);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+input,
+select {
+  height: 40px;
+}
+
+/* ファイル選択はネイティブ表示のまま見せる（input の枠・背景・高さの箱を付けない） */
+input[type="file"] {
+  border: none;
+  background: transparent;
+  padding: 0;
+  height: auto;
+  border-radius: 0;
+}
+
+textarea {
+  min-height: 40px;
+}
+
+/* error=border を color-error（aria-invalid を付与した要素に適用） */
+input[aria-invalid="true"],
+textarea[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+/* disabled=disabled-bg / disabled-text */
+input:disabled,
+textarea:disabled,
+select:disabled,
+button:disabled {
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}
+
+/* ボタン：高さ ~40px（縦 space-2〜3 / 横 space-4）、text-base、radius-sm */
+button {
+  font-family: inherit;
+  font-size: var(--text-base);
+  line-height: var(--leading);
+  letter-spacing: var(--tracking);
+  min-height: 40px;
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* hover=罫線濃く */
+button:not(:disabled):hover {
+  border-color: var(--color-text);
+}
+
+/* フォーカスリング：全インタラクティブ要素の :focus-visible（§4） */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* エラー文（role="alert" 等で使う機能色） */
+.error,
+[role="alert"] {
+  color: var(--color-error);
+}
+
+/* 作品一覧グリッド（§4 グリッド列数 / §6.5）。
+   <md=1列 / ≥md=2列、より広い幅で3列。余白はトークン。 */
+.artwork-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .artwork-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .artwork-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 公開ポートフォリオの作品グリッド（§4 グリッド列数 / §6.10）。
+   <md=1〜2列 / ≥md=3列。余白はトークン。 */
+.portfolio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .portfolio-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 検索結果の作品グリッド（§4 グリッド列数 / §6.9）。
+   <md=1列 / ≥md=2列。作者結果はリスト（グリッド化しない）。 */
+.search-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .search-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

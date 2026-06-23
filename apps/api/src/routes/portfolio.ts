@@ -13,7 +13,6 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { AppBindings } from "../env";
 import { largeUrl, thumbnailUrl } from "../lib/image/url";
-import { filterPublicArtworks } from "../lib/visibility";
 import type {
   PortfolioImage,
   PortfolioRepository,
@@ -98,16 +97,14 @@ export function createPortfolioRoutes(injectedDeps?: PortfolioRoutesDeps) {
 
     const baseUrl = c.env.IMAGE_BASE_URL;
 
-    // B4: 公開（is_public && published）のみ・sort_order 昇順。
-    const visible = filterPublicArtworks(data.artworks);
-
+    // 掲載・公開（status='published'）・position 昇順はリポジトリで解決済み（ADR D12 / §6.10）。
     const body: PublicPortfolioDto = {
       profile: {
         slug: data.profile.slug,
         displayName: data.profile.displayName,
         bio: data.profile.bio,
       },
-      artworks: visible.map((art) => ({
+      artworks: data.artworks.map((art) => ({
         id: art.id,
         title: art.title,
         description: art.description,

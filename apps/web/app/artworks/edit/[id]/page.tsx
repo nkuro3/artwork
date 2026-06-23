@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { createApiClient } from "../../../../lib/api";
-import { getArtwork } from "../../../../lib/artworks";
+import { getArtwork, getArtworkImages } from "../../../../lib/artworks";
 import { getSession } from "../../../../lib/session";
 import { ArtworkForm } from "../../artwork-form";
 
@@ -26,26 +26,29 @@ export default async function EditArtworkPage({
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
   const client = createApiClient(cookie ? { cookie } : {});
-  const result = await getArtwork(client, id);
+  // 作品の現在値と既存画像を並行取得（所有者検証は api 側 / SEC-01・B4b §6.7）。
+  const [result, imagesResult] = await Promise.all([
+    getArtwork(client, id),
+    getArtworkImages(client, id),
+  ]);
   if (!result.ok) notFound();
 
   const art = result.data;
+  // 画像取得が失敗してもメタ編集は続行できるよう、失敗時は空配列にフォールバックする。
+  const initialImages = imagesResult.ok ? imagesResult.data : [];
 
   return (
-    <main>
+    <>
       <h1>作品を編集</h1>
       <ArtworkForm
         artworkId={art.id}
+        initialImages={initialImages}
         defaults={{
           title: art.title,
           description: art.description ?? "",
           status: art.status,
-          isPublic: art.isPublic,
         }}
       />
-      <p>
-        <a href="/artworks">一覧へ戻る</a>
-      </p>
-    </main>
+    </>
   );
 }

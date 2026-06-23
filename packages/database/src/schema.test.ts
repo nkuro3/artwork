@@ -141,14 +141,13 @@ describe("artist_profile table", () => {
 });
 
 describe("artwork table", () => {
-  it("has the expected columns", () => {
+  it("has the expected columns (no is_draft / is_public — status one source)", () => {
     expect(columnNames(schema.artwork)).toEqual(
       [
         "artist_profile_id",
         "created_at",
         "description",
         "id",
-        "is_public",
         "sort_order",
         "status",
         "title",
@@ -186,17 +185,17 @@ describe("artwork table", () => {
     expect(hasIndex).toBe(true);
   });
 
-  it("status defaults to draft and is not null", () => {
+  it("status defaults to draft, is not null, enum = draft/published/archived", () => {
     const cols = getTableColumns(schema.artwork);
     expect(cols.status.notNull).toBe(true);
     expect(cols.status.default).toBe("draft");
-    expect(cols.status.enumValues).toEqual(["draft", "published"]);
+    expect(cols.status.enumValues).toEqual(["draft", "published", "archived"]);
   });
 
-  it("is_public is a boolean default false, not null", () => {
+  it("has no is_draft / is_public columns", () => {
     const cols = getTableColumns(schema.artwork);
-    expect(cols.isPublic.notNull).toBe(true);
-    expect(cols.isPublic.default).toBe(false);
+    expect("isDraft" in cols).toBe(false);
+    expect("isPublic" in cols).toBe(false);
   });
 
   it("sort_order is an integer default 0, not null", () => {
@@ -270,6 +269,73 @@ describe("artwork_image table", () => {
       f.reference().columns.some((c) => c.name === "user_id"),
     );
     expect(fk).toBeDefined();
+    expect(fk!.reference().foreignTable).toBe(schema.user);
+  });
+});
+
+describe("portfolio_item table", () => {
+  it("has the expected columns", () => {
+    expect(columnNames(schema.portfolioItem)).toEqual(
+      [
+        "artwork_id",
+        "created_at",
+        "id",
+        "position",
+        "user_id",
+      ].sort(),
+    );
+  });
+
+  it("id is the primary key with a default", () => {
+    const cols = getTableColumns(schema.portfolioItem);
+    expect(cols.id.primary).toBe(true);
+    expect(cols.id.hasDefault).toBe(true);
+  });
+
+  it("user_id is not null and indexed (portfolio owner)", () => {
+    const cols = getTableColumns(schema.portfolioItem);
+    expect(cols.userId.notNull).toBe(true);
+    const { indexes } = getTableConfig(schema.portfolioItem);
+    const hasIndex = indexes.some((i) =>
+      i.config.columns.some((c) => "name" in c && c.name === "user_id"),
+    );
+    expect(hasIndex).toBe(true);
+  });
+
+  it("artwork_id is not null, unique, and indexed", () => {
+    const cols = getTableColumns(schema.portfolioItem);
+    expect(cols.artworkId.notNull).toBe(true);
+    expect(cols.artworkId.isUnique).toBe(true);
+    const { indexes } = getTableConfig(schema.portfolioItem);
+    const hasIndex = indexes.some((i) =>
+      i.config.columns.some((c) => "name" in c && c.name === "artwork_id"),
+    );
+    expect(hasIndex).toBe(true);
+  });
+
+  it("position is an integer default 0, not null", () => {
+    const cols = getTableColumns(schema.portfolioItem);
+    expect(cols.position.notNull).toBe(true);
+    expect(cols.position.default).toBe(0);
+  });
+
+  it("artwork_id references artwork.id with on delete cascade", () => {
+    const { foreignKeys } = getTableConfig(schema.portfolioItem);
+    const fk = foreignKeys.find((f) =>
+      f.reference().columns.some((c) => c.name === "artwork_id"),
+    );
+    expect(fk).toBeDefined();
+    expect(fk!.onDelete).toBe("cascade");
+    expect(fk!.reference().foreignTable).toBe(schema.artwork);
+  });
+
+  it("user_id references user.id with on delete cascade", () => {
+    const { foreignKeys } = getTableConfig(schema.portfolioItem);
+    const fk = foreignKeys.find((f) =>
+      f.reference().columns.some((c) => c.name === "user_id"),
+    );
+    expect(fk).toBeDefined();
+    expect(fk!.onDelete).toBe("cascade");
     expect(fk!.reference().foreignTable).toBe(schema.user);
   });
 });

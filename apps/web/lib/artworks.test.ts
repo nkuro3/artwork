@@ -3,6 +3,7 @@ import {
   createArtwork,
   deleteArtwork,
   getArtwork,
+  getArtworkImages,
   listArtworks,
   updateArtwork,
 } from "./artworks";
@@ -26,8 +27,8 @@ const SAMPLE = {
   title: "夜",
   description: null,
   status: "draft",
-  isPublic: false,
   sortOrder: 0,
+  thumbnailUrl: "https://img.example/artworks/a1.jpg/thumb",
   createdAt: "2026-06-01T00:00:00.000Z",
   updatedAt: "2026-06-01T00:00:00.000Z",
 };
@@ -40,6 +41,14 @@ function mockClient(overrides: Partial<MockShape> = {}) {
   const del = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
 
   const get = vi.fn().mockResolvedValue(res(SAMPLE));
+  const imagesGet = vi
+    .fn()
+    .mockResolvedValue(
+      res([
+        { id: "i2", thumbnailUrl: "https://img.example/i2/thumb", sortOrder: 1 },
+        { id: "i1", thumbnailUrl: "https://img.example/i1/thumb", sortOrder: 0 },
+      ]),
+    );
 
   const client = {
     // E0: 全 api ルートを /api 配下へ寄せたため、hc のアクセスは client.api.* になる（ADR D4）。
@@ -54,13 +63,14 @@ function mockClient(overrides: Partial<MockShape> = {}) {
             $get: overrides.get ?? get,
             $patch: overrides.patch ?? patch,
             $delete: overrides.del ?? del,
+            images: { $get: overrides.imagesGet ?? imagesGet },
           },
         },
       ),
     },
   } as unknown as ArtworksClient;
 
-  return { client, list, post, patch, del, get };
+  return { client, list, post, patch, del, get, imagesGet };
 }
 
 interface MockShape {
@@ -69,6 +79,7 @@ interface MockShape {
   patch: ReturnType<typeof vi.fn>;
   del: ReturnType<typeof vi.fn>;
   get: ReturnType<typeof vi.fn>;
+  imagesGet: ReturnType<typeof vi.fn>;
 }
 
 describe("getArtwork", () => {
@@ -100,7 +111,19 @@ describe("listArtworks", () => {
     if (result.ok) {
       expect(result.data).toHaveLength(1);
       expect(result.data[0]?.id).toBe("a1");
+      expect(result.data[0]?.thumbnailUrl).toBe(
+        "https://img.example/artworks/a1.jpg/thumb",
+      );
     }
+  });
+
+  it("画像なしの作品は thumbnailUrl=null を保持する", async () => {
+    const { client } = mockClient({
+      list: vi.fn().mockResolvedValue(res([{ ...SAMPLE, thumbnailUrl: null }])),
+    });
+    const result = await listArtworks(client);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data[0]?.thumbnailUrl).toBeNull();
   });
 
   it("非 ok レスポンスは失敗に正規化する", async () => {
@@ -113,40 +136,39 @@ describe("listArtworks", () => {
 });
 
 describe("createArtwork", () => {
-  it("title をトリムして RPC に渡し、作成結果を返す", async () => {
+  it("title を生値のまま RPC に渡し、作成結果を返す（既定 draft・空可）", async () => {
     const { client, post } = mockClient();
-    const result = await createArtwork(client, { title: "  夜  " });
+    const result = await createArtwork(client, { title: "" });
 
     expect(post).toHaveBeenCalledTimes(1);
-    expect(post).toHaveBeenCalledWith({ json: { title: "夜" } });
+    expect(post).toHaveBeenCalledWith({ json: { title: "" } });
     expect(result.ok).toBe(true);
   });
 
-  it("description / status / isPublic を指定すれば json に載せる", async () => {
+  it("description / status を指定すれば json に載せる", async () => {
     const { client, post } = mockClient();
     await createArtwork(client, {
       title: "夜",
       description: "説明",
       status: "published",
-      isPublic: true,
     });
     expect(post).toHaveBeenCalledWith({
       json: {
         title: "夜",
         description: "説明",
         status: "published",
-        isPublic: true,
       },
     });
   });
 
-  it("title 空はバリデーションエラー（RPC を呼ばない）", async () => {
+  it("status=draft で空 title の下書きを作成できる", async () => {
     const { client, post } = mockClient();
-    const result = await createArtwork(client, { title: "   " });
+    const result = await createArtwork(client, { title: "", status: "draft" });
 
-    expect(post).not.toHaveBeenCalled();
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/title/i);
+    expect(post).toHaveBeenCalledWith({
+      json: { title: "", status: "draft" },
+    });
+    expect(result.ok).toBe(true);
   });
 
   it("非 ok レスポンスは失敗に正規化する", async () => {
@@ -180,13 +202,60 @@ describe("updateArtwork", () => {
 
   it("title 未指定の部分更新は許可する", async () => {
     const { client, patch } = mockClient();
-    const result = await updateArtwork(client, "a1", { isPublic: true });
+    const result = await updateArtwork(client, "a1", { status: "published" });
 
     expect(patch).toHaveBeenCalledWith({
       param: { id: "a1" },
-      json: { isPublic: true },
+      json: { status: "published" },
     });
     expect(result.ok).toBe(true);
+  });
+
+  it("status=archived を json に載せる", async () => {
+    const { client, patch } = mockClient();
+    const result = await updateArtwork(client, "a1", { status: "archived" });
+
+    expect(patch).toHaveBeenCalledWith({
+      param: { id: "a1" },
+      json: { status: "archived" },
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("getArtworkImages", () => {
+  it("id を param に渡し、sortOrder 昇順で正規化して返す", async () => {
+    const { client, imagesGet } = mockClient();
+    const result = await getArtworkImages(client, "a1");
+
+    expect(imagesGet).toHaveBeenCalledWith({ param: { id: "a1" } });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.map((i) => i.id)).toEqual(["i1", "i2"]);
+      expect(result.data[0]).toEqual({
+        id: "i1",
+        thumbnailUrl: "https://img.example/i1/thumb",
+        sortOrder: 0,
+      });
+    }
+  });
+
+  it("非 ok レスポンスは失敗に正規化する", async () => {
+    const { client } = mockClient({
+      imagesGet: vi
+        .fn()
+        .mockResolvedValue(res({ message: "Forbidden" }, false, 403)),
+    });
+    const result = await getArtworkImages(client, "a1");
+    expect(result.ok).toBe(false);
+  });
+
+  it("RPC 例外を失敗に倒す", async () => {
+    const { client } = mockClient({
+      imagesGet: vi.fn().mockRejectedValue(new Error("network")),
+    });
+    const result = await getArtworkImages(client, "a1");
+    expect(result.ok).toBe(false);
   });
 });
 

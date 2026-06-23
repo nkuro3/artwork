@@ -16,6 +16,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
 import { assertOwner } from "../lib/auth-guard";
+import { thumbnailUrl } from "../lib/image/url";
 import {
   type SessionVariables,
   getCurrentUser,
@@ -45,6 +46,12 @@ export interface ArtworksRoutesDeps {
   resolveArtistProfileId: (userId: string) => Promise<string | null>;
   imageRepo: ArtworkImageRepository;
   storage: ArtworksRoutesStorage;
+  /**
+   * 画像配信のベース URL（env `IMAGE_BASE_URL`）。一覧の先頭画像サムネ URL 組み立て（B5）に使う。
+   * 認証ガード（requireAuth）と env 型の干渉を避けるため、c.env 直読みではなく
+   * 配線層から注入する（images ルートと同方針）。
+   */
+  imageBaseUrl: string;
 }
 
 /**
@@ -55,7 +62,11 @@ type AppEnv = {
   Variables: SessionVariables & { artworksDeps?: ArtworksRoutesDeps };
 };
 
-const VALID_STATUS: readonly ArtworkStatus[] = ["draft", "published"];
+const VALID_STATUS: readonly ArtworkStatus[] = [
+  "draft",
+  "published",
+  "archived",
+];
 
 /** 400 を投げる検証エラー。 */
 function badRequest(message: string): never {
@@ -70,25 +81,24 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-/** title: 非空文字列を検証して trim 済みを返す。 */
+/**
+ * title: 文字列を検証して trim 済みを返す（空文字を許容）。
+ * 下書きは空タイトル可のため、ここでは非空チェックをしない。
+ * 「公開（status='published' 確定）」時の非空チェックは PATCH ハンドラで行う。
+ */
 function validateTitle(value: unknown): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    badRequest("title is required and must be a non-empty string");
+  if (typeof value !== "string") {
+    badRequest("title must be a string");
   }
   return (value as string).trim();
 }
 
-/** status: 'draft' | 'published' を検証。 */
+/** status: 'draft' | 'published' | 'archived' を検証（ADR D12）。 */
 function validateStatus(value: unknown): ArtworkStatus {
   if (!VALID_STATUS.includes(value as ArtworkStatus)) {
-    badRequest("status must be 'draft' or 'published'");
+    badRequest("status must be 'draft', 'published' or 'archived'");
   }
   return value as ArtworkStatus;
-}
-
-function validateBoolean(value: unknown, field: string): boolean {
-  if (typeof value !== "boolean") badRequest(`${field} must be a boolean`);
-  return value as boolean;
 }
 
 function validateSortOrder(value: unknown): number {
@@ -111,14 +121,13 @@ function parseCreateBody(raw: unknown): Omit<
   "userId" | "artistProfileId"
 > {
   const body = asRecord(raw);
+  // 下書きは空タイトル可。title 未指定なら空文字として作成する。
   const input: Omit<CreateArtworkInput, "userId" | "artistProfileId"> = {
-    title: validateTitle(body.title),
+    title: body.title === undefined ? "" : validateTitle(body.title),
   };
   if (body.description !== undefined)
     input.description = validateDescription(body.description);
   if (body.status !== undefined) input.status = validateStatus(body.status);
-  if (body.isPublic !== undefined)
-    input.isPublic = validateBoolean(body.isPublic, "isPublic");
   if (body.sortOrder !== undefined)
     input.sortOrder = validateSortOrder(body.sortOrder);
   return input;
@@ -132,8 +141,6 @@ function parseUpdateBody(raw: unknown): UpdateArtworkPatch {
   if (body.description !== undefined)
     patch.description = validateDescription(body.description);
   if (body.status !== undefined) patch.status = validateStatus(body.status);
-  if (body.isPublic !== undefined)
-    patch.isPublic = validateBoolean(body.isPublic, "isPublic");
   if (body.sortOrder !== undefined)
     patch.sortOrder = validateSortOrder(body.sortOrder);
   return patch;
@@ -168,17 +175,23 @@ export function createArtworksRoutes(injectedDeps?: ArtworksRoutesDeps) {
     new Hono<AppEnv>()
       // 全エンドポイントで認証必須。
       .use("*", requireAuth)
-      // 一覧（自分のものだけ / FR-05）。
+      // 一覧（自分のものだけ / FR-05）。各作品に先頭画像のサムネ URL を載せる
+      // （02 仕様 §6.5 / B5）。画像なしは null。スキーマ型（r2Key）は web に漏らさない（ADR D5）。
       .get("/", async (c) => {
-        const { repo } = resolveDeps(injectedDeps, c);
+        const { repo, imageBaseUrl } = resolveDeps(injectedDeps, c);
         const user = getCurrentUser(c);
         const items = await repo.listByUser(user.id);
-        return c.json(items);
+        const body = items.map(({ thumbnailR2Key, ...rest }) => ({
+          ...rest,
+          thumbnailUrl: thumbnailR2Key
+            ? thumbnailUrl(imageBaseUrl, thumbnailR2Key)
+            : null,
+        }));
+        return c.json(body);
       })
       // 作成（userId はサーバー付与 / SEC-01。FR-05,08,09）。
       // json 入力は `validator` で型を宣言し、web の `hc<AppType>()` に body 型を伝える
-      // （NFR-11 / ADR D5）。検証ロジックは従来の parseCreateBody を validator 内で実行し、
-      // 不正フィールドは 400（HTTPException）で従来どおり弾く（挙動不変）。
+      // （NFR-11 / ADR D5）。parseCreateBody で検証し、不正フィールドは 400（HTTPException）で弾く。
       .post("/", validator("json", (value) => parseCreateBody(value)), async (c) => {
         const { repo, resolveArtistProfileId } = resolveDeps(injectedDeps, c);
         const user = getCurrentUser(c);
@@ -218,6 +231,18 @@ export function createArtworksRoutes(injectedDeps?: ArtworksRoutesDeps) {
         const row = await repo.findById(id);
         if (row === null) throw new HTTPException(404, { message: "Not Found" });
         assertOwner(user.id, row);
+
+        // 公開（status を 'published' に確定する更新）はタイトル必須（02 仕様
+        // 「作品の状態モデル」/ ADR D12）。patch 適用後の実効タイトル
+        // （patch.title 指定があればそれ、無ければ既存値）が空なら 400 で弾く。
+        if (patch.status === "published") {
+          const effectiveTitle = (patch.title ?? row.title).trim();
+          if (effectiveTitle === "") {
+            throw new HTTPException(400, {
+              message: "タイトルを入力してください",
+            });
+          }
+        }
 
         const updated = await repo.update(id, patch);
         if (updated === null)

@@ -79,6 +79,7 @@ export function createSearchRoutes(injectedDeps?: SearchRoutesDeps) {
         title: row.title,
         // slug は任意プロパティ。null/undefined のときは出力しない（exactOptionalPropertyTypes）。
         ...(row.slug != null ? { slug: row.slug } : {}),
+        artistSlug: row.artistSlug,
         thumbnailUrl:
           row.r2Key != null ? thumbnailUrl(baseUrl, row.r2Key) : null,
       })),

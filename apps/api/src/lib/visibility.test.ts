@@ -1,14 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  filterPublicArtworks,
-  isArtworkPublic,
-  type ArtworkStatus,
-} from "./visibility";
+import type { ArtworkStatus } from "./visibility";
+import { filterPublicArtworks, isArtworkPublic } from "./visibility";
 
 /** テスト用の最小作品ファクトリ。 */
 function artwork(overrides: {
-  isPublic: boolean;
   status: ArtworkStatus;
   sortOrder?: number;
   id?: string;
@@ -16,48 +12,30 @@ function artwork(overrides: {
   return {
     id: overrides.id ?? "a",
     sortOrder: overrides.sortOrder ?? 0,
-    isPublic: overrides.isPublic,
     status: overrides.status,
   };
 }
 
 describe("isArtworkPublic", () => {
-  it("published かつ public は true", () => {
-    expect(isArtworkPublic({ isPublic: true, status: "published" })).toBe(true);
+  it("status='published' のみ true", () => {
+    expect(isArtworkPublic({ status: "published" })).toBe(true);
   });
 
-  it("draft かつ public は false（未公開ステータス）", () => {
-    expect(isArtworkPublic({ isPublic: true, status: "draft" })).toBe(false);
+  it("status='draft' は false", () => {
+    expect(isArtworkPublic({ status: "draft" })).toBe(false);
   });
 
-  it("published かつ非 public は false", () => {
-    expect(isArtworkPublic({ isPublic: false, status: "published" })).toBe(
-      false,
-    );
-  });
-
-  it("draft かつ非 public は false", () => {
-    expect(isArtworkPublic({ isPublic: false, status: "draft" })).toBe(false);
+  it("status='archived' は false", () => {
+    expect(isArtworkPublic({ status: "archived" })).toBe(false);
   });
 });
 
 describe("filterPublicArtworks", () => {
-  it("非公開・下書きを除外し、公開作品のみ残す（FR-12）", () => {
+  it("draft / archived を除外し、published のみ残す（FR-12）", () => {
     const input = [
-      artwork({ id: "pub", isPublic: true, status: "published", sortOrder: 0 }),
-      artwork({ id: "draft", isPublic: true, status: "draft", sortOrder: 1 }),
-      artwork({
-        id: "private",
-        isPublic: false,
-        status: "published",
-        sortOrder: 2,
-      }),
-      artwork({
-        id: "both-off",
-        isPublic: false,
-        status: "draft",
-        sortOrder: 3,
-      }),
+      artwork({ id: "pub", status: "published", sortOrder: 0 }),
+      artwork({ id: "draft", status: "draft", sortOrder: 1 }),
+      artwork({ id: "archived", status: "archived", sortOrder: 2 }),
     ];
 
     const result = filterPublicArtworks(input);
@@ -67,9 +45,9 @@ describe("filterPublicArtworks", () => {
 
   it("sortOrder 昇順に並べ替える（FR-13）", () => {
     const input = [
-      artwork({ id: "c", isPublic: true, status: "published", sortOrder: 2 }),
-      artwork({ id: "a", isPublic: true, status: "published", sortOrder: 0 }),
-      artwork({ id: "b", isPublic: true, status: "published", sortOrder: 1 }),
+      artwork({ id: "c", status: "published", sortOrder: 2 }),
+      artwork({ id: "a", status: "published", sortOrder: 0 }),
+      artwork({ id: "b", status: "published", sortOrder: 1 }),
     ];
 
     const result = filterPublicArtworks(input);
@@ -79,9 +57,9 @@ describe("filterPublicArtworks", () => {
 
   it("同一 sortOrder は元の相対順を保つ（安定ソート）", () => {
     const input = [
-      artwork({ id: "x", isPublic: true, status: "published", sortOrder: 5 }),
-      artwork({ id: "y", isPublic: true, status: "published", sortOrder: 5 }),
-      artwork({ id: "z", isPublic: true, status: "published", sortOrder: 5 }),
+      artwork({ id: "x", status: "published", sortOrder: 5 }),
+      artwork({ id: "y", status: "published", sortOrder: 5 }),
+      artwork({ id: "z", status: "published", sortOrder: 5 }),
     ];
 
     const result = filterPublicArtworks(input);
@@ -91,8 +69,8 @@ describe("filterPublicArtworks", () => {
 
   it("元配列を破壊しない（不変）", () => {
     const input = [
-      artwork({ id: "c", isPublic: true, status: "published", sortOrder: 2 }),
-      artwork({ id: "a", isPublic: true, status: "published", sortOrder: 0 }),
+      artwork({ id: "c", status: "published", sortOrder: 2 }),
+      artwork({ id: "a", status: "published", sortOrder: 0 }),
     ] as const;
     const snapshot = input.map((a) => a.id);
 
