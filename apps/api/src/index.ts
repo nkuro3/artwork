@@ -1,8 +1,22 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
+import type { AppBindings } from "./env";
+import { createAuth } from "./lib/auth";
 
-// 再設計中の最小スケルトン。ルートは仕様確定後にここへ追加する。
-const app = new Hono();
+const app = new Hono<{ Bindings: AppBindings }>();
+
+// ローカルのみ CORS（web:3000 → api:8787）。本番は同一オリジンなので WEB_ORIGIN 未設定。
+app.use("/api/*", async (c, next) => {
+  if (!c.env.WEB_ORIGIN) return next();
+  return cors({ origin: c.env.WEB_ORIGIN, credentials: true })(c, next);
+});
 
 app.get("/api/health", (c) => c.json({ ok: true }));
 
+// Better Auth のハンドラ（サインアップ / ログイン / セッション / ログアウト等すべて）。
+app.on(["GET", "POST"], "/api/auth/*", (c) =>
+  createAuth(c.env).handler(c.req.raw),
+);
+
 export default app;
+export type AppType = typeof app;
