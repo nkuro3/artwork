@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AppBindings } from "./env";
 import { createAuth } from "./lib/auth";
+import { cleanupOrphanImages } from "./lib/cleanup";
 import { artworksRoute } from "./routes/artworks";
 import { imagesRoute } from "./routes/images";
 
@@ -25,5 +26,17 @@ const _routes = app
   .route("/api/artworks", artworksRoute)
   .route("/api/images", imagesRoute);
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // 孤児画像クリーンアップ（wrangler.toml の [triggers] crons）。
+  // ローカルは Bun サーブ（fetch のみ）/ wrangler dev とも cron は自動発火しない。
+  // 型は web からも import されるため CF グローバル型に依存しない最小形にする。
+  scheduled(
+    _event: unknown,
+    env: AppBindings,
+    ctx: { waitUntil(promise: Promise<unknown>): void },
+  ) {
+    ctx.waitUntil(cleanupOrphanImages(env));
+  },
+};
 export type AppType = typeof _routes;

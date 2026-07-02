@@ -26,5 +26,8 @@ export function createStorage(env: AppBindings) {
     get(key: string) {
       return client.fetch(objectUrl(key));
     },
+    delete(key: string) {
+      return client.fetch(objectUrl(key), { method: "DELETE" });
+    },
   };
 }

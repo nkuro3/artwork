@@ -11,6 +11,11 @@ routes = [
   { pattern = "artwork-store.jp/api/*", zone_name = "artwork-store.jp" }
 ]
 
+# 孤児画像クリーンアップ（artwork_id IS NULL、猶予 24h）。毎日 3:00 UTC = 12:00 JST。
+# ローカル（Bun サーブ / wrangler dev）では cron は自動発火しない。
+[triggers]
+crons = ["0 3 * * *"]
+
 # 非機密の本番設定（ADR D11）。機密（DATABASE_URL / BETTER_AUTH_SECRET / R2 の S3 キー）は
 # [vars] に書かず `wrangler secret put <NAME>` で設定する。
 # ローカルは .dev.vars が [vars] を上書きする（localhost 値で開発）。
