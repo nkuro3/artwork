@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import type { AppBindings } from "./env";
 import { createAuth } from "./lib/auth";
 import { artworksRoute } from "./routes/artworks";
+import { imagesRoute } from "./routes/images";
 
 const app = new Hono<{ Bindings: AppBindings }>();
 
@@ -20,7 +21,9 @@ app.on(["GET", "POST"], "/api/auth/*", (c) =>
 );
 
 // RPC 型を web に渡すため、ルートはチェーンで登録する。
-const _routes = app.route("/api/artworks", artworksRoute);
+const _routes = app
+  .route("/api/artworks", artworksRoute)
+  .route("/api/images", imagesRoute);
 
 export default app;
 export type AppType = typeof _routes;

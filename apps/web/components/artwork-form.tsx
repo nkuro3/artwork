@@ -2,7 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
-import { apiFetch, type Artwork, type ArtworkInput } from "../lib/api";
+import {
+  apiFetch,
+  type Artwork,
+  type ArtworkImage,
+  type ArtworkInput,
+} from "../lib/api";
+import { ImageUploader } from "./image-uploader";
 
 const fieldStyle = {
   display: "flex",
@@ -11,10 +17,17 @@ const fieldStyle = {
 } as const;
 
 // 作成・編集共通のワイヤーフレームフォーム。
-export function ArtworkForm({ initial }: { initial?: Artwork }) {
+export function ArtworkForm({
+  initial,
+  initialImages = [],
+}: {
+  initial?: Artwork;
+  initialImages?: ArtworkImage[];
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [images, setImages] = useState<ArtworkImage[]>(initialImages);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,6 +60,7 @@ export function ArtworkForm({ initial }: { initial?: Artwork }) {
       widthMm: int("widthMm"),
       depthMm: int("depthMm"),
       weightG: int("weightG"),
+      imageIds: images.map((img) => img.id),
     };
 
     const res = await apiFetch(
@@ -128,6 +142,8 @@ export function ArtworkForm({ initial }: { initial?: Artwork }) {
           <input name="weightG" type="number" min={0} defaultValue={initial?.weightG ?? ""} />
         </label>
       </fieldset>
+
+      <ImageUploader images={images} onChange={setImages} />
 
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={submitting}>

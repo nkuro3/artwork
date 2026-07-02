@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArtworkForm } from "../../../../components/artwork-form";
-import { api, type Artwork } from "../../../../lib/api";
+import { api, type Artwork, type ArtworkImage } from "../../../../lib/api";
 
 export default function EditArtworkPage() {
   const { id } = useParams<{ id: string }>();
   const [artwork, setArtwork] = useState<Artwork | null>(null);
+  const [images, setImages] = useState<ArtworkImage[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,8 +26,12 @@ export default function EditArtworkPage() {
           );
           return;
         }
-        const body = await res.json();
-        setArtwork(body.artwork as Artwork);
+        const body = (await res.json()) as unknown as {
+          artwork: Artwork;
+          images: ArtworkImage[];
+        };
+        setArtwork(body.artwork);
+        setImages(body.images ?? []);
       })
       .catch(() => setError("読み込みに失敗しました"));
   }, [id]);
@@ -36,7 +41,7 @@ export default function EditArtworkPage() {
       <h1>作品の編集</h1>
       <Link href={`/artworks/${id}`}>詳細へ戻る</Link>
       {error && <p role="alert">{error}</p>}
-      {artwork && <ArtworkForm initial={artwork} />}
+      {artwork && <ArtworkForm initial={artwork} initialImages={images} />}
     </main>
   );
 }

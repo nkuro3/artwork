@@ -37,6 +37,32 @@ export type Artwork = {
   updatedAt: string;
 };
 
+// 作品画像（API の返却 JSON 由来）。
+export type ArtworkImage = {
+  id: string;
+  artworkId: string | null;
+  userId: string;
+  storageKey: string;
+  sortOrder: number;
+  width: number | null;
+  height: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// 画像の表示 URL。
+// 本番: R2 公開ドメイン + Image Resizing（/cdn-cgi/image でオンザフライ変換）。
+// ローカル: エッジを通らず変換不可のため、api 経由のオリジナル配信にフォールバック。
+const imageBaseURL = process.env.NEXT_PUBLIC_IMAGE_BASE_URL ?? "";
+
+export function imageFileUrl(image: ArtworkImage, width?: number) {
+  if (imageBaseURL) {
+    const options = width ? `width=${width},format=auto` : "format=auto";
+    return `${imageBaseURL}/cdn-cgi/image/${options}/${image.storageKey}`;
+  }
+  return `${baseURL}/api/images/${image.id}/file`;
+}
+
 // 作成・更新フォームが送る入力型。
 export type ArtworkInput = {
   title: string;
@@ -50,4 +76,5 @@ export type ArtworkInput = {
   widthMm: number | null;
   depthMm: number | null;
   weightG: number | null;
+  imageIds: string[];
 };

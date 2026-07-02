@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api, type Artwork } from "../../../lib/api";
+import {
+  api,
+  type Artwork,
+  type ArtworkImage,
+  imageFileUrl,
+} from "../../../lib/api";
 
 const dims = (a: Artwork) => {
   const parts = [a.heightMm, a.widthMm, a.depthMm];
@@ -15,6 +20,7 @@ export default function ArtworkDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [artwork, setArtwork] = useState<Artwork | null>(null);
+  const [images, setImages] = useState<ArtworkImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -32,8 +38,12 @@ export default function ArtworkDetailPage() {
           );
           return;
         }
-        const body = await res.json();
-        setArtwork(body.artwork as Artwork);
+        const body = (await res.json()) as unknown as {
+          artwork: Artwork;
+          images: ArtworkImage[];
+        };
+        setArtwork(body.artwork);
+        setImages(body.images ?? []);
       })
       .catch(() => setError("読み込みに失敗しました"));
   }, [id]);
@@ -64,6 +74,29 @@ export default function ArtworkDetailPage() {
         )}
       </div>
       {error && <p role="alert">{error}</p>}
+      {images.length > 0 && (
+        <ul
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            listStyle: "none",
+            margin: 0,
+            padding: 0,
+          }}
+        >
+          {images.map((img) => (
+            <li key={img.id}>
+              <img
+                src={imageFileUrl(img, 240)}
+                alt=""
+                width={240}
+                style={{ display: "block", height: "auto" }}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
       {artwork && (
         <table style={{ borderCollapse: "collapse" }}>
           <tbody>
