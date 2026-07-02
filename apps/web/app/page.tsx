@@ -17,6 +17,9 @@ export default function HomePage() {
           <p>
             サインイン中: {session.user.name}（{session.user.email}）
           </p>
+          <nav style={{ display: "flex", gap: 16 }}>
+            <Link href="/artworks">作品一覧</Link>
+          </nav>
           <div>
             <SignoutButton />
           </div>

@@ -4,10 +4,10 @@
 //
 // 使い方: apps/api ディレクトリで
 //   bun --env-file=.dev.vars scripts/serve-local.ts
-import app from "../src/index.ts";
+import app from "../src/index";
 
 const port = Number(process.env.PORT ?? 8787);
-const ctx = { waitUntil() {}, passThroughOnException() {} };
+const ctx = { waitUntil() {}, passThroughOnException() {}, props: {} };
 
 const server = Bun.serve({
   port,
