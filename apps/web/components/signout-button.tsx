@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { authClient } from "../lib/auth-client";
 
-export function LogoutButton() {
+export function SignoutButton() {
   const router = useRouter();
   return (
     <button
@@ -13,7 +13,7 @@ export function LogoutButton() {
         router.refresh();
       }}
     >
-      ログアウト
+      サインアウト
     </button>
   );
 }

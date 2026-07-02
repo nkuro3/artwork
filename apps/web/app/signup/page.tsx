@@ -7,7 +7,7 @@ export default function SignupPage() {
       <h1>サインアップ</h1>
       <AuthForm mode="signup" />
       <p>
-        アカウントをお持ちの方は <Link href="/login">ログイン</Link>
+        アカウントをお持ちの方は <Link href="/signin">サインイン</Link>
       </p>
     </main>
   );

@@ -4,8 +4,8 @@ import { AuthForm } from "../../components/auth-form";
 export default function LoginPage() {
   return (
     <main style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-      <h1>ログイン</h1>
-      <AuthForm mode="login" />
+      <h1>サインイン</h1>
+      <AuthForm mode="signin" />
       <p>
         アカウントがない方は <Link href="/signup">サインアップ</Link>
       </p>

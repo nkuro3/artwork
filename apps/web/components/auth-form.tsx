@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { authClient } from "../lib/auth-client";
 
-type Mode = "signup" | "login";
+type Mode = "signup" | "signin";
 
 // ワイヤーフレーム品質の共通認証フォーム。装飾なし・余白と整列のみ整える。
 export function AuthForm({ mode }: { mode: Mode }) {
@@ -66,7 +66,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       </label>
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={submitting}>
-        {mode === "signup" ? "登録" : "ログイン"}
+        {mode === "signup" ? "サインアップ" : "サインイン"}
       </button>
     </form>
   );
